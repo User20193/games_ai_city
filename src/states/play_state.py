@@ -51,6 +51,7 @@ class PlayState(State):
         mx, my = get_safe_spawn_pos(mayor_x, mayor_y, 20)
         mayor = Citizen(mx, my, self.game.language, self.world, self.game.asset_manager)
         mayor.job = "Мэр"
+        mayor.home = "Дом Мэра"
         self.entity_manager.add_entity(mayor)
 
         # Тестовые жители
