@@ -26,6 +26,16 @@ class Citizen(Entity):
         self.thought_timer = 0
         self.thought_surface = None
 
+        # Данные паспорта
+        self.first_name = "Неизвестный"
+        self.last_name = "Гражданин"
+        if self.language:
+            self.first_name = self.language.get_word("first_names")
+            self.last_name = self.language.get_word("last_names")
+
+        self.age = random.randint(18, 80)
+        self.job = "Безработный"
+
         self.generate_thought()
 
     def generate_thought(self):
@@ -108,6 +118,11 @@ class Citizen(Entity):
                 else:
                     self.x = future_x
                     self.y = future_y
+
+    def check_click(self, mouse_world_x, mouse_world_y):
+        """Проверяет, попадают ли мировые координаты мыши в bbox жителя."""
+        rect = self.get_rect()
+        return rect.collidepoint(mouse_world_x, mouse_world_y)
 
     def render(self, surface, camera):
         screen_rect = camera.apply(self.get_rect())
