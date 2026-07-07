@@ -3,6 +3,7 @@ import random
 import math
 from .entity import Entity
 from src.core import config
+from .pathfinding import astar_search
 
 class Citizen(Entity):
     def __init__(self, x, y, language_system, world, asset_manager=None):
@@ -38,10 +39,11 @@ class Citizen(Entity):
         self.home_apt = random.randint(1, 40)
         self.home = f"Дом {self.home_building.split(' ')[1]}, Кв. {self.home_apt}"
 
-        # Системные флаги
         self.is_visible = True
         self.time_system = None
-        self.stuck_timer = 0.0
+
+        # Переменные для пути (A*)
+        self.path = []
 
         self.generate_thought()
 
@@ -75,18 +77,51 @@ class Citizen(Entity):
                     return True
         return False
 
+    def _move_towards_target(self, dt):
+        """Возвращает True, если достиг цели."""
+        dx = self.target_x - self.x
+        dy = self.target_y - self.y
+        dist = math.hypot(dx, dy)
+
+        if dist < 1.0:
+            return True
+
+        step_x = (dx / dist) * self.speed * dt
+        step_y = (dy / dist) * self.speed * dt
+
+        if not self._check_collision(self.x + step_x, self.y):
+            self.x += step_x
+
+        if not self._check_collision(self.x, self.y + step_y):
+            self.y += step_y
+
+        return False
+
     def update(self, dt):
-        # 1. Проверяем расписание (комендантский час)
+        # 1. Расписание (комендантский час)
         if self.time_system:
             t = self.time_system.game_time
             is_night = (t >= 22.0 or t < 6.0)
 
             if is_night and self.state not in ["GOING_HOME", "SLEEPING_INSIDE"]:
                 self.state = "GOING_HOME"
-                self.stuck_timer = 0.0 # Сбрасываем таймер застревания
                 door_coords = self.world.building_doors.get(self.home_building)
                 if door_coords:
-                    self.target_x, self.target_y = door_coords
+                    # Вместо прямой ходьбы вычисляем маршрут по A*
+                    start_pos = (self.x + self.width/2, self.y + self.height) # Координаты ног
+                    self.path = astar_search(self.world, start_pos, door_coords)
+
+                    if self.path:
+                        # Берем первую точку из пути
+                        self.target_x, self.target_y = self.path.pop(0)
+                        # Корректируем, чтобы центр ног шел к точке
+                        self.target_x -= self.width / 2
+                        self.target_y -= self.height
+                    else:
+                        # Если путь вообще не найден (заглушка), просто идем напрямую (вряд ли сработает, но пусть будет)
+                        self.target_x, self.target_y = door_coords
+                        self.target_x -= self.width / 2
+                        self.target_y -= self.height
                 else:
                     self.is_visible = False
                     self.state = "SLEEPING_INSIDE"
@@ -134,52 +169,24 @@ class Citizen(Entity):
                 self.target_x = max(0, min(self.target_x, max_world_x - self.width))
                 self.target_y = max(0, min(self.target_y, max_world_y - self.height))
 
-        elif self.state == "WANDER" or self.state == "GOING_HOME":
-            dx = self.target_x - self.x
-            dy = self.target_y - self.y
-            dist = math.hypot(dx, dy)
+        elif self.state == "WANDER":
+            reached = self._move_towards_target(dt)
+            if reached:
+                self.state = "IDLE"
+                self.state_timer = random.uniform(1.0, 4.0)
 
-            # Радиус входа домой увеличиваем до 8 пикселей (1 тайл)
-            reach_radius = 8.0 if self.state == "GOING_HOME" else 1.0
-
-            if dist < reach_radius:
-                if self.state == "GOING_HOME":
+        elif self.state == "GOING_HOME":
+            reached = self._move_towards_target(dt)
+            if reached:
+                if self.path:
+                    # Берем следующую точку пути
+                    self.target_x, self.target_y = self.path.pop(0)
+                    self.target_x -= self.width / 2
+                    self.target_y -= self.height
+                else:
+                    # Путь закончился, мы у двери
                     self.state = "SLEEPING_INSIDE"
                     self.is_visible = False
-                else:
-                    self.state = "IDLE"
-                    self.state_timer = random.uniform(1.0, 4.0)
-            else:
-                step_x = (dx / dist) * self.speed * dt
-                step_y = (dy / dist) * self.speed * dt
-
-                moved_x = False
-                moved_y = False
-
-                if not self._check_collision(self.x + step_x, self.y):
-                    self.x += step_x
-                    moved_x = True
-
-                if not self._check_collision(self.x, self.y + step_y):
-                    self.y += step_y
-                    moved_y = True
-
-                # Логика застревания
-                if not moved_x and not moved_y:
-                    if self.state == "WANDER":
-                        self.state = "IDLE"
-                        self.state_timer = random.uniform(0.5, 1.5)
-                        self.target_x = self.x
-                        self.target_y = self.y
-                    elif self.state == "GOING_HOME":
-                        # Если застрял идучи домой, ждем пару секунд
-                        self.stuck_timer += dt
-                        if self.stuck_timer > 3.0: # Если 3 секунды буксует в стену
-                            # Телепортируемся домой
-                            self.x = self.target_x
-                            self.y = self.target_y
-                            self.state = "SLEEPING_INSIDE"
-                            self.is_visible = False
 
     def check_click(self, mouse_world_x, mouse_world_y):
         if not self.is_visible:
