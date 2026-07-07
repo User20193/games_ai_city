@@ -50,14 +50,9 @@ class Citizen(Entity):
                 self.thought_surface = None
 
     def _check_collision(self, check_x, check_y):
-        """Возвращает True, если житель столкнется со стеной в переданных координатах."""
-        # Уменьшаем хитбокс по ширине на 2 пикселя с каждой стороны,
-        # чтобы они могли спокойно проходить в двери (ширина двери 16px)
         margin_x = 2
-        # Хитбокс по Y - это только самый низ ног (последние 4 пикселя)
         foot_height = 4
 
-        # 4 точки: Левый-верх ног, Правый-верх ног, Левый-низ, Правый-низ
         points = [
             (check_x + margin_x, check_y + self.height - foot_height),
             (check_x + self.width - margin_x, check_y + self.height - foot_height),
@@ -116,16 +111,12 @@ class Citizen(Entity):
                 step_x = (dx / dist) * self.speed * dt
                 step_y = (dy / dist) * self.speed * dt
 
-                # Двигаем по X
                 if not self._check_collision(self.x + step_x, self.y):
                     self.x += step_x
 
-                # Двигаем по Y независимо от X (позволяет скользить вдоль стен)
                 if not self._check_collision(self.x, self.y + step_y):
                     self.y += step_y
 
-                # Если мы застряли и не можем двигаться ни по X, ни по Y,
-                # нужно сбросить цель, чтобы выбрать новый путь.
                 if self._check_collision(self.x + step_x, self.y) and self._check_collision(self.x, self.y + step_y):
                     self.state = "IDLE"
                     self.state_timer = random.uniform(0.5, 1.5)
@@ -154,7 +145,14 @@ class Citizen(Entity):
         pygame.draw.rect(surface, self.shirt_color, (sx, sy + head_h, body_w, body_h))
         pygame.draw.rect(surface, self.skin_color, (sx + head_offset_x, sy, head_w, head_h))
 
+    def render_ui(self, surface, camera):
+        """Отрисовывает облачко мыслей вторым проходом, чтобы они были поверх всех жителей."""
         if self.thought_timer > 0 and self.thought_surface:
+            screen_rect = camera.apply(self.get_rect())
+            sx = int(screen_rect.x)
+            sy = int(screen_rect.y)
+            body_w = int(screen_rect.width)
+
             text_rect = self.thought_surface.get_rect()
 
             padding = 4
