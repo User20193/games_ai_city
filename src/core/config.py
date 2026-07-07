@@ -21,6 +21,12 @@ COLORS = {
     "btn_base": (200, 200, 200),
     "btn_hover": (255, 215, 0),
 
+    # UI Паспорта
+    "passport_bg": (40, 45, 55, 230),
+    "passport_border": (100, 150, 200),
+    "passport_accent": (200, 200, 200),
+    "passport_photo_bg": (100, 100, 120),
+
     # Сущности
     "skin_default": (255, 224, 189),
     "pants_default": (40, 40, 60),
@@ -41,7 +47,10 @@ FONTS = {
     "default_path": "assets/fonts/pixel_font.ttf",
     "title_size": 48,
     "menu_size": 24,
-    "thought_size": 12
+    "thought_size": 12,
+    "passport_title": 24,
+    "passport_text": 18,
+    "passport_small": 14
 }
 
 # Внутриигровое время
