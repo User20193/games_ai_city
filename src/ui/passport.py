@@ -4,20 +4,20 @@ from src.core import config
 class PassportUI:
     def __init__(self, asset_manager):
         self.asset_manager = asset_manager
-        # Сделали шире (280) и прозрачнее
+        # Сделали карточку еще шире и длиннее для нового формата
         self.width = 280
-        self.height = 360
+        self.height = 420
         self.padding = 15
 
-        self.bg_color = config.COLORS["passport_bg"]
+        self.bg_color = config.COLORS["passport_bg"] # Полупрозрачный из конфига
         self.border_color = config.COLORS["passport_border"]
         self.text_color = config.COLORS["white"]
         self.accent_color = config.COLORS["passport_accent"]
         self.photo_bg = config.COLORS["passport_photo_bg"]
 
-        self.title_size = config.FONTS["passport_title"] # 20
-        self.text_size = config.FONTS["passport_text"] # 16
-        self.small_size = config.FONTS["passport_small"] # 12
+        self.title_size = config.FONTS["passport_title"]
+        self.text_size = config.FONTS["passport_text"]
+        self.small_size = config.FONTS["passport_small"]
 
         self.bg_surf = pygame.Surface((self.width, self.height), pygame.SRCALPHA)
         pygame.draw.rect(self.bg_surf, self.bg_color, (0, 0, self.width, self.height), border_radius=12)
@@ -63,31 +63,28 @@ class PassportUI:
         pygame.draw.rect(surface, citizen.shirt_color, (photo_x + center_offset_x, content_y + p_head_h, p_body_w, p_body_h))
         pygame.draw.rect(surface, citizen.skin_color, (photo_x + head_offset_x, content_y + int(photo_size*0.1), p_head_w, p_head_h))
 
-        # --- ДАННЫЕ СТОЛБИКОМ ---
+        # --- ДАННЫЕ СТОЛБИКОМ (Лейбл сверху, Значение снизу) ---
         text_y = content_y + photo_size + 15
-        line_spacing = 25
 
         name_str = f"{citizen.first_name} {citizen.last_name}"
         name_val = self.asset_manager.render_text(name_str, self.title_size, self.text_color)
         name_rect = name_val.get_rect(centerx=x + self.width // 2, top=text_y)
         surface.blit(name_val, name_rect)
 
-        text_y += line_spacing + 15
+        text_y += 35
 
-        def draw_stat(label, value, y_pos):
+        def draw_stacked_stat(label, value, y_pos):
+            # Лейбл маленьким шрифтом (серенький)
             lbl_surf = self.asset_manager.render_text(label, self.small_size, self.accent_color)
+            surface.blit(lbl_surf, (x + self.padding + 10, y_pos))
+
+            # Значение под ним, шрифтом побольше (белый)
             val_surf = self.asset_manager.render_text(str(value), self.text_size, self.text_color)
-            # Лейбл слева (чуть сдвинем правее для красоты)
-            surface.blit(lbl_surf, (x + self.padding + 10, y_pos + 2)) # +2 для выравнивания с текстом
-            # Значение справа
-            val_rect = val_surf.get_rect(right=x + self.width - self.padding - 10, top=y_pos)
-            surface.blit(val_surf, val_rect)
+            surface.blit(val_surf, (x + self.padding + 10, y_pos + 16))
 
-        draw_stat("Возраст:", citizen.age, text_y)
-        text_y += line_spacing
+            return y_pos + 42 # Возвращаем новую координату Y для следующего блока
 
-        draw_stat("Работа:", citizen.job, text_y)
-        text_y += line_spacing
-
+        text_y = draw_stacked_stat("Возраст:", citizen.age, text_y)
+        text_y = draw_stacked_stat("Работа:", citizen.job, text_y)
         home_str = getattr(citizen, 'home', 'Бездомный')
-        draw_stat("Жилье:", home_str, text_y)
+        draw_stacked_stat("Жилье:", home_str, text_y)
