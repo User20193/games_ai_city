@@ -30,7 +30,7 @@ class TileRegistry:
         # Здания (стены непроходимы)
         self.register(Tile(5, "Wall", (240, 230, 210), is_solid=True))
         # Крыша проходима для логики (она на другом слое)
-        self.register(Tile(6, "Roof", (178, 34, 34)))
+        self.register(Tile(6, "Roof", (178, 34, 34), is_solid=True))
 
         # Двери, пол
         self.register(Tile(7, "Door", (139, 69, 19)))
