@@ -116,32 +116,37 @@ def get_apartment_building_prefab():
     return p
 
 def get_supermarket_prefab():
-    p = Prefab("Supermarket", 16, 12)
+    p = Prefab("Supermarket", 16, 24) # Увеличили длину
 
-    # Пол магазина (светлая плитка)
-    p.fill_rect(0, 0, 16, 12, 14, "ground")
+    # Пол магазина
+    p.fill_rect(0, 0, 16, 24, 14, "ground")
 
     # Стены по периметру
-    p.draw_perimeter(0, 0, 16, 12, 5, "ground")
+    p.draw_perimeter(0, 0, 16, 24, 5, "ground")
 
     # Крыша покрывает все здание
-    p.fill_rect(0, 0, 16, 12, 6, "roof")
+    p.fill_rect(0, 0, 16, 24, 6, "roof")
 
-    # Дверь (вход на северной стене)
+    # Дверь (вход на южной стене)
     door_x = 8
-    door_y = 0
+    door_y = 23
     p.set_tile(door_x, door_y, 14, "ground")
     p.set_tile(door_x - 1, door_y, 14, "ground")
 
     p.set_tile(door_x, door_y, None, "roof")
     p.set_tile(door_x - 1, door_y, None, "roof")
 
-    # Интерьер: Полки (ID=15)
-    p.fill_rect(2, 3, 4, 2, 15, "ground") # Левая полка
-    p.fill_rect(10, 3, 4, 2, 15, "ground") # Правая полка
-    p.fill_rect(2, 7, 4, 2, 15, "ground") # Левая полка 2
+    # Интерьер: Полки по бокам (как в библиотеке)
+    # Левый ряд
+    p.fill_rect(2, 3, 3, 16, 15, "ground")
+    # Правый ряд
+    p.fill_rect(11, 3, 3, 16, 15, "ground")
 
-    # Касса (ID=16) - справа от входа внутри
-    p.fill_rect(10, 8, 4, 1, 16, "ground")
+    # Центральный ряд островков
+    p.fill_rect(7, 5, 2, 4, 15, "ground")
+    p.fill_rect(7, 12, 2, 4, 15, "ground")
+
+    # Касса (ближе ко входу, слева от двери)
+    p.fill_rect(3, 20, 3, 1, 16, "ground")
 
     return p
