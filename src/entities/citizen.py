@@ -95,10 +95,14 @@ class Citizen(Entity):
                 future_x = self.x + step_x
                 future_y = self.y + step_y
 
+                # Проверяем хитбокс (квадрат в области ног жителя, где он "стоит" на земле).
+                # Проверяем все 4 угла этого хитбокса, чтобы он точно не мог пройти сквозь стену.
+                hitbox_margin = 1 # Отступ от краев, чтобы не цепляться за соседние тайлы
                 check_points = [
-                    (future_x + self.width / 2, future_y + self.height),
-                    (future_x, future_y + self.height),
-                    (future_x + self.width, future_y + self.height)
+                    (future_x + hitbox_margin, future_y + self.height - hitbox_margin),                      # Левый низ
+                    (future_x + self.width - hitbox_margin, future_y + self.height - hitbox_margin),         # Правый низ
+                    (future_x + hitbox_margin, future_y + self.height - self.width / 2),                     # Левый верх ног
+                    (future_x + self.width - hitbox_margin, future_y + self.height - self.width / 2),        # Правый верх ног
                 ]
 
                 collision = False
@@ -120,7 +124,6 @@ class Citizen(Entity):
                     self.y = future_y
 
     def check_click(self, mouse_world_x, mouse_world_y):
-        """Проверяет, попадают ли мировые координаты мыши в bbox жителя."""
         rect = self.get_rect()
         return rect.collidepoint(mouse_world_x, mouse_world_y)
 
