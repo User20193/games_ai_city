@@ -128,57 +128,73 @@ class World:
         center_tx = (self.WORLD_WIDTH * self.CHUNK_SIZE) // 2
         center_ty = (self.WORLD_HEIGHT * self.CHUNK_SIZE) // 2
 
-        # 1. Мэрия (ее вход на южной стороне, y=9)
+        max_tx = self.WORLD_WIDTH * self.CHUNK_SIZE
+
+        # === 1. ГЛАВНОЕ ШОССЕ (Идет через весь мир по оси X) ===
+        highway_y = center_ty
+
+        for x in range(max_tx):
+            self.set_tile_by_index(x, highway_y - 2, 4, layer="ground") # Верхний тротуар
+            self.set_tile_by_index(x, highway_y - 1, 12, layer="ground") # Асфальт (верхняя полоса)
+
+            # Разметка по центру (пунктир)
+            if x % 4 < 2:
+                self.set_tile_by_index(x, highway_y, 13, layer="ground") # Белая полоса
+            else:
+                self.set_tile_by_index(x, highway_y, 12, layer="ground") # Асфальт
+
+            self.set_tile_by_index(x, highway_y + 1, 12, layer="ground") # Асфальт (нижняя полоса)
+            self.set_tile_by_index(x, highway_y + 2, 4, layer="ground") # Нижний тротуар
+
+
+        # === 2. МЭРИЯ (Отодвигаем вверх от дороги) ===
         city_hall = get_city_hall_prefab()
         ch_x = center_tx - city_hall.width // 2
-        ch_y = center_ty - city_hall.height // 2
+        ch_y = highway_y - 2 - city_hall.height - 4 # Отступ 4 тайла от верхнего тротуара
         apply_prefab(self, ch_x, ch_y, city_hall)
 
-        # 2. Главная дорога
-        road_y = ch_y + city_hall.height + 1 # Сдвинем дорогу чуть ниже Мэрии
-        road_start_x = ch_x - 10
-        road_end_x = ch_x + city_hall.width + 25
-        for x in range(road_start_x, road_end_x):
-            for dy in range(4): # Ширина дороги 4 тайла
-                self.set_tile_by_index(x, road_y + dy, 4, layer="ground")
+        # Дорожка к дверям Мэрии (спускается к верхнему тротуару)
+        door_x = center_tx
+        door_y = ch_y + city_hall.height - 1
 
-        # Дорожка к дверям Мэрии
-        for y in range(ch_y + city_hall.height, road_y):
+        for y in range(ch_y + city_hall.height, highway_y - 2):
             self.set_tile_by_index(center_tx, y, 4, layer="ground")
             self.set_tile_by_index(center_tx - 1, y, 4, layer="ground")
 
-        # 3. Дом Мэра (строим справа от Мэрии, НО НИЖЕ ДОРОГИ)
+
+        # === 3. ДОМ МЭРА (Справа внизу от дороги) ===
         mayor_house = get_mayor_house_prefab()
-        mh_x = road_end_x - 12
-        mh_y = road_y + 6
+        mh_x = center_tx + city_hall.width + 10
+        mh_y = highway_y + 3 + 4 # Отступ 4 тайла от нижнего тротуара
         apply_prefab(self, mh_x, mh_y, mayor_house)
 
-        # Дорожка к дому мэра (дверь на северной стороне, x=4)
+        # Дорожка к дому мэра (поднимается к нижнему тротуару)
         mh_door_x = mh_x + 4
-        for y in range(road_y + 4, mh_y):
+        for y in range(highway_y + 3, mh_y):
             self.set_tile_by_index(mh_door_x, y, 4, layer="ground")
 
-        # 4. Квартиры (под дорогой)
+
+        # === 4. МНОГОЭТАЖКИ (Слева внизу от дороги) ===
         apt_prefab = get_apartment_building_prefab()
-        apt_y = road_y + 6
+        apt_y = highway_y + 3 + 4 # На одном уровне с домом мэра
 
         # Квартира 1
-        apt1_x = ch_x - 6
+        apt1_x = ch_x - 10
         apply_prefab(self, apt1_x, apt_y, apt_prefab)
 
-        # Дорожка к Квартире 1 (двойная дверь на x=5 и x=6)
+        # Дорожка к Квартире 1
         a1_door_x = apt1_x + 6
-        for y in range(road_y + 4, apt_y):
+        for y in range(highway_y + 3, apt_y):
             self.set_tile_by_index(a1_door_x, y, 4, layer="ground")
             self.set_tile_by_index(a1_door_x - 1, y, 4, layer="ground")
 
         # Квартира 2
-        apt2_x = ch_x + apt_prefab.width
+        apt2_x = ch_x + 6
         apply_prefab(self, apt2_x, apt_y, apt_prefab)
 
         # Дорожка к Квартире 2
         a2_door_x = apt2_x + 6
-        for y in range(road_y + 4, apt_y):
+        for y in range(highway_y + 3, apt_y):
             self.set_tile_by_index(a2_door_x, y, 4, layer="ground")
             self.set_tile_by_index(a2_door_x - 1, y, 4, layer="ground")
 
