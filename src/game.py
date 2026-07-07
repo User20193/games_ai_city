@@ -1,0 +1,75 @@
+import pygame
+import sys
+import os
+from src.language import LanguageSystem
+from src.systems.asset_manager import AssetManager
+
+class Game:
+    def __init__(self):
+        pygame.init()
+        self.WINDOW_WIDTH = 1280
+        self.WINDOW_HEIGHT = 720
+        self.is_fullscreen = False
+        self.screen = pygame.display.set_mode((self.WINDOW_WIDTH, self.WINDOW_HEIGHT))
+        pygame.display.set_caption("Лисеу-Сити")
+
+        self.clock = pygame.time.Clock()
+        self.running = True
+        self.dt = 0
+
+        # Стек состояний (например: Game -> PauseMenu). Текущее состояние - последнее в списке.
+        self.state_stack = []
+
+        # Загрузка глобальных ресурсов и подсистем
+        self.language = LanguageSystem()
+        self.asset_manager = AssetManager()
+        self.load_assets()
+
+    def load_assets(self):
+        self.title_font = self.asset_manager.get_font(48)
+        self.menu_font = self.asset_manager.get_font(24)
+
+    def get_events(self):
+        events = pygame.event.get()
+        for event in events:
+            if event.type == pygame.QUIT:
+                self.running = False
+            elif event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_F11:
+                    self.toggle_fullscreen()
+        return events
+
+    def toggle_fullscreen(self):
+        self.is_fullscreen = not self.is_fullscreen
+        if self.is_fullscreen:
+            # Получаем текущее разрешение экрана пользователя
+            display_info = pygame.display.Info()
+            self.WINDOW_WIDTH = display_info.current_w
+            self.WINDOW_HEIGHT = display_info.current_h
+            self.screen = pygame.display.set_mode((self.WINDOW_WIDTH, self.WINDOW_HEIGHT), pygame.FULLSCREEN)
+        else:
+            self.WINDOW_WIDTH = 1280
+            self.WINDOW_HEIGHT = 720
+            self.screen = pygame.display.set_mode((self.WINDOW_WIDTH, self.WINDOW_HEIGHT))
+
+    def update(self, events):
+        # Обновляем только текущее (верхнее) состояние
+        if self.state_stack:
+            self.state_stack[-1].update(self.dt, events)
+
+    def render(self):
+        # Отрисовываем текущее (верхнее) состояние
+        if self.state_stack:
+            self.state_stack[-1].render(self.screen)
+
+        pygame.display.flip()
+
+    def run(self):
+        while self.running:
+            self.dt = self.clock.tick(60) / 1000.0
+            events = self.get_events()
+            self.update(events)
+            self.render()
+
+        pygame.quit()
+        sys.exit()
