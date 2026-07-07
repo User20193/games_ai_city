@@ -1,4 +1,5 @@
 import pygame
+from src.core import config
 
 class Button:
     def __init__(self, x, y, text, font, base_color, hover_color):
@@ -10,8 +11,11 @@ class Button:
         self.hover_color = hover_color
         self.is_hovered = False
 
-        # Создаем текстовую поверхность один раз для оптимизации
-        self.text_surf = self.font.render(self.text_str, True, self.base_color)
+        # Кэшируем поверхности для обычного и hover состояний сразу
+        self.base_surf = self.font.render(self.text_str, True, self.base_color)
+        self.hover_surf = self.font.render(self.text_str, True, self.hover_color)
+
+        self.text_surf = self.base_surf
         self.rect = self.text_surf.get_rect(center=(self.x, self.y))
 
         # Размеры для рамки (подложки)
@@ -27,9 +31,8 @@ class Button:
         # Проверяем, наведен ли курсор на кнопку
         self.is_hovered = self.bg_rect.collidepoint(mouse_pos)
 
-        # Обновляем цвет текста в зависимости от наведения
-        current_color = self.hover_color if self.is_hovered else self.base_color
-        self.text_surf = self.font.render(self.text_str, True, current_color)
+        # Выбираем заранее отрендеренную поверхность
+        self.text_surf = self.hover_surf if self.is_hovered else self.base_surf
 
     def draw(self, surface):
         # Рисуем подложку (рамку)

@@ -1,10 +1,11 @@
 import pygame
+from src.core import config
 
 class TimeSystem:
     def __init__(self, game):
         self.game = game
-        self.game_time = 12.0 # Начинаем в полдень (12:00)
-        self.time_speed = 1.0 # 1 игровой час проходит за 1 реальную минуту (1 / 60 часов в секунду)
+        self.game_time = config.TIME_START_HOUR
+        self.time_speed = config.TIME_SPEED_MULTIPLIER
 
         # Кэш для UI
         self.last_text = ""
@@ -33,7 +34,8 @@ class TimeSystem:
 
         if alpha > 0:
             dark_surface = pygame.Surface((self.game.WINDOW_WIDTH, self.game.WINDOW_HEIGHT), pygame.SRCALPHA)
-            dark_surface.fill((10, 10, 30, alpha))
+            base_r, base_g, base_b = config.COLORS["night_filter"]
+            dark_surface.fill((base_r, base_g, base_b, alpha))
             surface.blit(dark_surface, (0, 0))
 
     def render_ui(self, surface):
@@ -56,8 +58,9 @@ class TimeSystem:
         if text != self.last_text or not self.cached_ui_surf:
             self.last_text = text
             try:
-                self.cached_shadow_surf = self.game.asset_manager.render_text(text, 24, (0, 0, 0))
-                self.cached_ui_surf = self.game.asset_manager.render_text(text, 24, (255, 255, 255))
+                font_size = config.FONTS["menu_size"]
+                self.cached_shadow_surf = self.game.asset_manager.render_text(text, font_size, config.COLORS["black"])
+                self.cached_ui_surf = self.game.asset_manager.render_text(text, font_size, config.COLORS["white"])
             except:
                 pass
 

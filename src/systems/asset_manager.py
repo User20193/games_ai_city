@@ -1,5 +1,5 @@
 import pygame
-import os
+from src.core import config
 
 class AssetManager:
     _instance = None
@@ -13,7 +13,8 @@ class AssetManager:
     def _init(self):
         self.fonts = {}
         self.text_cache = {}
-        self.default_font_path = os.path.join("assets", "fonts", "pixel_font.ttf")
+        self.default_font_path = config.FONTS["default_path"]
+        self.MAX_CACHE_SIZE = 100 # LRU (или просто очистка) для предотвращения утечки
 
     def get_font(self, size, path=None):
         if path is None:
@@ -31,6 +32,13 @@ class AssetManager:
     def render_text(self, text, size, color, path=None):
         key = (text, size, color, path)
         if key not in self.text_cache:
+            # Очистка кэша, если он становится слишком большим (очень простая защита от утечки памяти динамичного текста)
+            if len(self.text_cache) > self.MAX_CACHE_SIZE:
+                # Очищаем только половину самых старых ключей (Python 3.7+ гарантирует порядок вставки в dict)
+                keys_to_delete = list(self.text_cache.keys())[:self.MAX_CACHE_SIZE//2]
+                for k in keys_to_delete:
+                    del self.text_cache[k]
+
             font = self.get_font(size, path)
             self.text_cache[key] = font.render(text, True, color)
         return self.text_cache[key]
