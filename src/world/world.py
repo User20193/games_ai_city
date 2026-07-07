@@ -24,7 +24,6 @@ class World:
 
         self.tile_registry = TileRegistry()
 
-        # Кэш для промежуточных поверхностей рендера
         self._temp_surf_ground = None
         self._temp_surf_roof = None
 
@@ -129,63 +128,59 @@ class World:
         center_tx = (self.WORLD_WIDTH * self.CHUNK_SIZE) // 2
         center_ty = (self.WORLD_HEIGHT * self.CHUNK_SIZE) // 2
 
-        # 1. Мэрия
+        # 1. Мэрия (ее вход на южной стороне, y=9)
         city_hall = get_city_hall_prefab()
         ch_x = center_tx - city_hall.width // 2
         ch_y = center_ty - city_hall.height // 2
         apply_prefab(self, ch_x, ch_y, city_hall)
 
-        # 2. Дом Мэра
-        mayor_house = get_mayor_house_prefab()
-        mh_x = ch_x + city_hall.width + 6
-        mh_y = ch_y + 2
-        apply_prefab(self, mh_x, mh_y, mayor_house)
-
-        # 3. Главная дорога
-        road_y = ch_y + city_hall.height
+        # 2. Главная дорога
+        road_y = ch_y + city_hall.height + 1 # Сдвинем дорогу чуть ниже Мэрии
         road_start_x = ch_x - 10
         road_end_x = ch_x + city_hall.width + 25
         for x in range(road_start_x, road_end_x):
-            for dy in range(4): # Сделали дорогу чуть шире (4 тайла)
+            for dy in range(4): # Ширина дороги 4 тайла
                 self.set_tile_by_index(x, road_y + dy, 4, layer="ground")
 
-        # 4. Дорожка к дому мэра
-        mh_door_x = mh_x + mayor_house.width // 2
-        for y in range(mh_y + mayor_house.height, road_y):
-            self.set_tile_by_index(mh_door_x, y, 4, layer="ground")
-            self.set_tile_by_index(mh_door_x - 1, y, 4, layer="ground")
+        # Дорожка к дверям Мэрии
+        for y in range(ch_y + city_hall.height, road_y):
+            self.set_tile_by_index(center_tx, y, 4, layer="ground")
+            self.set_tile_by_index(center_tx - 1, y, 4, layer="ground")
 
-        # 5. Квартиры (через дорогу от мэрии)
+        # 3. Дом Мэра (строим справа от Мэрии, НО НИЖЕ ДОРОГИ)
+        mayor_house = get_mayor_house_prefab()
+        mh_x = road_end_x - 12
+        mh_y = road_y + 6
+        apply_prefab(self, mh_x, mh_y, mayor_house)
+
+        # Дорожка к дому мэра (дверь на северной стороне, x=4)
+        mh_door_x = mh_x + 4
+        for y in range(road_y + 4, mh_y):
+            self.set_tile_by_index(mh_door_x, y, 4, layer="ground")
+
+        # 4. Квартиры (под дорогой)
         apt_prefab = get_apartment_building_prefab()
-        apt_y = road_y + 6 # Через дорогу и немного отступа
+        apt_y = road_y + 6
 
         # Квартира 1
-        apt1_x = ch_x - 4
+        apt1_x = ch_x - 6
         apply_prefab(self, apt1_x, apt_y, apt_prefab)
 
-        # Дорожка к Квартире 1
-        a1_door_x = apt1_x + apt_prefab.width // 2
-        for y in range(road_y + 4, apt_y + apt_prefab.height):
+        # Дорожка к Квартире 1 (двойная дверь на x=5 и x=6)
+        a1_door_x = apt1_x + 6
+        for y in range(road_y + 4, apt_y):
             self.set_tile_by_index(a1_door_x, y, 4, layer="ground")
             self.set_tile_by_index(a1_door_x - 1, y, 4, layer="ground")
 
         # Квартира 2
-        apt2_x = ch_x + apt_prefab.width + 4
+        apt2_x = ch_x + apt_prefab.width
         apply_prefab(self, apt2_x, apt_y, apt_prefab)
 
         # Дорожка к Квартире 2
-        a2_door_x = apt2_x + apt_prefab.width // 2
-        for y in range(road_y + 4, apt_y + apt_prefab.height):
+        a2_door_x = apt2_x + 6
+        for y in range(road_y + 4, apt_y):
             self.set_tile_by_index(a2_door_x, y, 4, layer="ground")
             self.set_tile_by_index(a2_door_x - 1, y, 4, layer="ground")
-
-        # Открытые двери мэрии
-        door_x = center_tx
-        door_y = ch_y + city_hall.height - 1
-        self.set_tile_by_index(door_x + 1, door_y, 7, layer="ground")
-        self.set_tile_by_index(door_x - 2, door_y, 7, layer="ground")
-
-        self.set_tile_by_index(mh_door_x, mh_y + mayor_house.height, 7, layer="ground")
 
         self.update_dirty_chunks()
 
@@ -219,7 +214,6 @@ class World:
         if surf_w <= 0 or surf_h <= 0:
             return
 
-        # Переиспользование промежуточной поверхности (GC оптимизация)
         if is_alpha:
             if self._temp_surf_roof is None or self._temp_surf_roof.get_size() != (surf_w, surf_h):
                 self._temp_surf_roof = pygame.Surface((surf_w, surf_h), pygame.SRCALPHA)

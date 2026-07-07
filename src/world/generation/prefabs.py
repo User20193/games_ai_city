@@ -57,9 +57,9 @@ def get_mayor_house_prefab():
     p.set_tile(1, 2, 10, "ground")
     p.set_tile(6, 2, 11, "ground") # Стул
 
-    # Двери
+    # Двери (на северной стене)
     door_x = 4
-    door_y = 5
+    door_y = 0
     p.set_tile(door_x, door_y, 8, "ground") # Пол на пороге
     p.set_tile(door_x, door_y, None, "roof") # Убрать крышу над дверью
 
@@ -79,7 +79,7 @@ def get_city_hall_prefab():
     # Стойка Reception
     p.fill_rect(3, 4, 8, 1, 9, "ground")
 
-    # Двери
+    # Двери (на южной стене)
     door_x = 7
     door_y = 9
     p.fill_rect(door_x - 1, door_y - 1, 2, 2, 8, "ground") # Пол у дверей
@@ -92,18 +92,22 @@ def get_city_hall_prefab():
 def get_apartment_building_prefab():
     p = Prefab("Apartment", 12, 10)
 
-    # Заливаем все здание стенами на уровне земли, так как это "кроличья нора"
-    # То есть внутрь никто физически не заходит (is_solid=True)
-    p.fill_rect(0, 0, 12, 10, 5, "ground")
+    # Внутри деревянный пол
+    p.fill_rect(0, 0, 12, 10, 8, "ground")
+
+    # Стены по периметру
+    p.draw_perimeter(0, 0, 12, 10, 5, "ground")
 
     # Крыша покрывает все здание
     p.fill_rect(0, 0, 12, 10, 6, "roof")
 
-    # Дверь внизу по центру
+    # Так как дома стоят ниже главной дороги, их двери должны быть на северной стене (сверху)
     door_x = 6
-    door_y = 9
-    p.set_tile(door_x, door_y, 7, "ground") # Дверь
-    p.set_tile(door_x - 1, door_y, 7, "ground") # Двойная дверь
+    door_y = 0
+
+    # Делаем вход двойной дверью (две клетки)
+    p.set_tile(door_x, door_y, 8, "ground") # Пол на пороге
+    p.set_tile(door_x - 1, door_y, 8, "ground") # Пол на пороге
 
     # Убираем крышу над дверью, чтобы ее было видно
     p.set_tile(door_x, door_y, None, "roof")

@@ -4,7 +4,7 @@ from src.core import config
 class PassportUI:
     def __init__(self, asset_manager):
         self.asset_manager = asset_manager
-        self.width = 320
+        self.width = 340
         self.height = 210 # Увеличили высоту для новой строчки
         self.padding = 15
 
