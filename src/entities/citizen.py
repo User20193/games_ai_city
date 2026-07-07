@@ -41,22 +41,23 @@ class Citizen(Entity):
 
         self.is_visible = True
         self.time_system = None
-        self.market_system = None # Ссылка на рынок
+        self.market_system = None
 
         self.path = []
 
-        # Экономика и потребности
         self.money = 1000
         self.hunger = random.uniform(50.0, 100.0)
         self.food_supplies = random.randint(0, 5)
+
+        self.has_groceries = False # Пакет с едой в руках
+        self.queue_index = -1 # Позиция в очереди
 
         self.generate_thought()
 
     def generate_thought(self):
         if self.language:
-            # Если очень голоден, думает только о еде
             if self.hunger < 30.0:
-                food = self.language.get_word("nouns") # в идеале отфильтровать съедобное
+                food = self.language.get_word("nouns")
                 self.thought = f"Хочется {food}..."
             else:
                 self.thought = self.language.generate_thought()
@@ -108,27 +109,21 @@ class Citizen(Entity):
         return False
 
     def update(self, dt):
-        # Обновление потребностей
-        # Ускорение падения голода если время ускорено
         speed_mult = self.time_system.time_speed if self.time_system else 1.0
-        # Голод падает на 10 единиц в игровой час (60 сек)
         self.hunger -= (10.0 / 60.0) * dt * speed_mult
         if self.hunger < 0: self.hunger = 0.0
         if self.hunger > 100.0: self.hunger = 100.0
 
-        # Питание дома (утром или вечером, если есть запасы)
         if self.state == "SLEEPING_INSIDE" and self.hunger < 80.0 and self.food_supplies > 0:
             self.food_supplies -= 1
             self.hunger = 100.0
 
-        # 1. Расписание
         if self.time_system:
             t = self.time_system.game_time
             is_night = (t >= 22.0 or t < 6.0)
 
-            # Работа кассиром
             if self.job == "Кассир" and not is_night:
-                if 7.8 <= t < 19.8: # Рабочая смена 07:50 - 19:50
+                if 7.8 <= t < 19.8:
                     if self.state != "WORKING":
                         self.state = "WORKING"
                         if self.world and self.world.shop_cashier_pos:
@@ -143,12 +138,11 @@ class Citizen(Entity):
                                 self.target_x -= self.width / 2
                                 self.target_y -= self.height
                 elif self.state == "WORKING":
-                    self.state = "IDLE" # Смена закончилась
+                    self.state = "IDLE"
 
-            # Поход в магазин за едой (только днем, если не кассир)
+            # Если не кассир, голоден или нет еды и есть деньги
             if self.job != "Кассир" and not is_night and self.state in ["IDLE", "WANDER"]:
-                # Если голоден или нет еды дома
-                if (self.hunger < 40.0 or self.food_supplies == 0) and self.money >= 50:
+                if (self.hunger < 40.0 or self.food_supplies == 0) and self.money >= 50 and not self.has_groceries:
                     self.state = "SHOPPING_GOTO_SHELF"
                     if self.world and self.world.shop_shelves:
                         shelf_pos = random.choice(self.world.shop_shelves)
@@ -159,14 +153,17 @@ class Citizen(Entity):
                             self.target_x -= self.width / 2
                             self.target_y -= self.height
 
-            # Комендантский час
             if is_night and self.state not in ["GOING_HOME", "SLEEPING_INSIDE"]:
+                # Если наступила ночь, а мы были в очереди - выходим
+                if self.queue_index != -1 and self in self.world.shop_queue:
+                    self.world.shop_queue.remove(self)
+                    self.queue_index = -1
+
                 self.state = "GOING_HOME"
                 door_coords = self.world.building_doors.get(self.home_building)
                 if door_coords:
                     start_pos = (self.x + self.width/2, self.y + self.height)
                     self.path = astar_search(self.world, start_pos, door_coords)
-
                     if self.path:
                         self.target_x, self.target_y = self.path.pop(0)
                         self.target_x -= self.width / 2
@@ -190,7 +187,6 @@ class Citizen(Entity):
             self.thought_surface = None
             return
 
-        # 2. Обновление мыслей
         if self.thought_timer > 0:
             self.thought_timer -= dt
             if self.thought_timer <= 0:
@@ -202,25 +198,36 @@ class Citizen(Entity):
             if self.thought_timer >= 0:
                 self.generate_thought()
 
-        # 3. FSM
         if self.state == "IDLE":
             self.state_timer -= dt
             if self.state_timer <= 0:
-                self.state = "WANDER"
-                angle = random.uniform(0, math.pi * 2)
-                distance = random.uniform(10, 50)
-                self.target_x = self.x + math.cos(angle) * distance
-                self.target_y = self.y + math.sin(angle) * distance
-
-                if self.world:
-                    max_world_x = self.world.WORLD_WIDTH * self.world.CHUNK_SIZE * self.world.TILE_SIZE
-                    max_world_y = self.world.WORLD_HEIGHT * self.world.CHUNK_SIZE * self.world.TILE_SIZE
+                # Если у нас есть продукты в руках, идем домой, а не гуляем
+                if self.has_groceries:
+                    self.state = "GOING_HOME"
+                    door_coords = self.world.building_doors.get(self.home_building)
+                    if door_coords:
+                        start_pos = (self.x + self.width/2, self.y + self.height)
+                        self.path = astar_search(self.world, start_pos, door_coords)
+                        if self.path:
+                            self.target_x, self.target_y = self.path.pop(0)
+                            self.target_x -= self.width / 2
+                            self.target_y -= self.height
                 else:
-                    max_world_x = config.WORLD_WIDTH * config.CHUNK_SIZE * config.TILE_SIZE
-                    max_world_y = config.WORLD_HEIGHT * config.CHUNK_SIZE * config.TILE_SIZE
+                    self.state = "WANDER"
+                    angle = random.uniform(0, math.pi * 2)
+                    distance = random.uniform(10, 50)
+                    self.target_x = self.x + math.cos(angle) * distance
+                    self.target_y = self.y + math.sin(angle) * distance
 
-                self.target_x = max(0, min(self.target_x, max_world_x - self.width))
-                self.target_y = max(0, min(self.target_y, max_world_y - self.height))
+                    if self.world:
+                        max_world_x = self.world.WORLD_WIDTH * self.world.CHUNK_SIZE * self.world.TILE_SIZE
+                        max_world_y = self.world.WORLD_HEIGHT * self.world.CHUNK_SIZE * self.world.TILE_SIZE
+                    else:
+                        max_world_x = config.WORLD_WIDTH * config.CHUNK_SIZE * config.TILE_SIZE
+                        max_world_y = config.WORLD_HEIGHT * config.CHUNK_SIZE * config.TILE_SIZE
+
+                    self.target_x = max(0, min(self.target_x, max_world_x - self.width))
+                    self.target_y = max(0, min(self.target_y, max_world_y - self.height))
 
         elif self.state == "WANDER":
             reached = self._move_towards_target(dt)
@@ -228,7 +235,7 @@ class Citizen(Entity):
                 self.state = "IDLE"
                 self.state_timer = random.uniform(1.0, 4.0)
 
-        elif self.state in ["GOING_HOME", "WORKING", "SHOPPING_GOTO_SHELF", "SHOPPING_GOTO_CASHIER"]:
+        elif self.state in ["GOING_HOME", "WORKING", "SHOPPING_GOTO_SHELF"]:
             reached = self._move_towards_target(dt)
             if reached:
                 if self.path:
@@ -236,39 +243,69 @@ class Citizen(Entity):
                     self.target_x -= self.width / 2
                     self.target_y -= self.height
                 else:
-                    # Достигли финальной точки
                     if self.state == "GOING_HOME":
-                        self.state = "SLEEPING_INSIDE"
-                        self.is_visible = False
+                        if self.has_groceries:
+                            # Дошли домой с едой!
+                            self.has_groceries = False
+                            self.food_supplies += 3
+                            self.hunger = 100.0 # Немного перекусили сразу
+                            self.state = "IDLE" # Идем гулять снова (если день)
+                        else:
+                            self.state = "SLEEPING_INSIDE"
+                            self.is_visible = False
                     elif self.state == "WORKING":
-                        # Пришли на кассу, стоим работаем
                         pass
                     elif self.state == "SHOPPING_GOTO_SHELF":
-                        # Дошли до полки, выбираем товар (стоим 2 сек)
                         self.state = "SHOPPING_PICKING"
                         self.state_timer = 2.0
-                    elif self.state == "SHOPPING_GOTO_CASHIER":
-                        # Дошли до кассы, покупаем
-                        if self.market_system:
-                            price = self.market_system.buy_goods()
-                            if self.money >= price:
-                                self.money -= price
-                                self.food_supplies += 3 # Купили еды
-                                self.hunger = 100.0 # Поели по дороге
-                        self.state = "IDLE" # Идем гулять дальше
 
         elif self.state == "SHOPPING_PICKING":
             self.state_timer -= dt
             if self.state_timer <= 0:
-                self.state = "SHOPPING_GOTO_CASHIER"
-                if self.world and hasattr(self.world, 'shop_queue_pos'):
-                    start_pos = (self.x + self.width/2, self.y + self.height)
-                    self.path = astar_search(self.world, start_pos, self.world.shop_queue_pos)
-                    if self.path:
-                        self.target_x, self.target_y = self.path.pop(0)
-                        self.target_x -= self.width / 2
-                        self.target_y -= self.height
+                # Встаем в очередь
+                if len(self.world.shop_queue) < len(self.world.shop_queue_slots):
+                    self.world.shop_queue.append(self)
+                    self.queue_index = len(self.world.shop_queue) - 1
+                    self.state = "IN_QUEUE"
+                else:
+                    # Очередь заполнена, уходим расстроенными
+                    self.state = "IDLE"
 
+        elif self.state == "IN_QUEUE":
+            # Узнаем свою позицию в очереди
+            try:
+                self.queue_index = self.world.shop_queue.index(self)
+            except ValueError:
+                self.queue_index = -1
+                self.state = "IDLE"
+                return
+
+            # Идем к своему слоту в очереди
+            slot_pos = self.world.shop_queue_slots[self.queue_index]
+            self.target_x = slot_pos[0] - self.width / 2
+            self.target_y = slot_pos[1] - self.height
+
+            reached = self._move_towards_target(dt)
+
+            if reached and self.queue_index == 0:
+                # Мы на кассе (слот 0)!
+                self.state = "PAYING"
+                self.state_timer = 1.0 # Ждем 1 сек на оплату
+
+        elif self.state == "PAYING":
+            self.state_timer -= dt
+            if self.state_timer <= 0:
+                if self.market_system:
+                    price = self.market_system.buy_goods()
+                    if self.money >= price:
+                        self.money -= price
+                        self.has_groceries = True # Теперь несем пакет домой!
+
+                # Выходим из очереди
+                if self in self.world.shop_queue:
+                    self.world.shop_queue.remove(self)
+                self.queue_index = -1
+                self.state = "IDLE" # Перейдет в GOING_HOME автоматически
 
     def check_click(self, mouse_world_x, mouse_world_y):
         if not self.is_visible:
@@ -296,6 +333,18 @@ class Citizen(Entity):
         pygame.draw.rect(surface, self.pants_color, (sx, sy + head_h + body_h, body_w, legs_h))
         pygame.draw.rect(surface, self.shirt_color, (sx, sy + head_h, body_w, body_h))
         pygame.draw.rect(surface, self.skin_color, (sx + head_offset_x, sy, head_w, head_h))
+
+        # Рисуем пакет с едой в руках
+        if self.has_groceries:
+            bag_w = 6
+            bag_h = 8
+            # Рисуем сбоку (справа)
+            bag_x = sx + body_w
+            bag_y = sy + head_h + body_h // 2
+            # Коричневый бумажный пакет
+            pygame.draw.rect(surface, (139, 69, 19), (bag_x, bag_y, bag_w, bag_h))
+            # Маленький "продукт" (зеленый листик) торчит из пакета
+            pygame.draw.rect(surface, (50, 200, 50), (bag_x + 1, bag_y - 2, 4, 2))
 
     def render_ui(self, surface, camera):
         if not self.is_visible:
