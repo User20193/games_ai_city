@@ -114,3 +114,34 @@ def get_apartment_building_prefab():
     p.set_tile(door_x - 1, door_y, None, "roof")
 
     return p
+
+def get_supermarket_prefab():
+    p = Prefab("Supermarket", 16, 12)
+
+    # Пол магазина (светлая плитка)
+    p.fill_rect(0, 0, 16, 12, 14, "ground")
+
+    # Стены по периметру
+    p.draw_perimeter(0, 0, 16, 12, 5, "ground")
+
+    # Крыша покрывает все здание
+    p.fill_rect(0, 0, 16, 12, 6, "roof")
+
+    # Дверь (вход на северной стене)
+    door_x = 8
+    door_y = 0
+    p.set_tile(door_x, door_y, 14, "ground")
+    p.set_tile(door_x - 1, door_y, 14, "ground")
+
+    p.set_tile(door_x, door_y, None, "roof")
+    p.set_tile(door_x - 1, door_y, None, "roof")
+
+    # Интерьер: Полки (ID=15)
+    p.fill_rect(2, 3, 4, 2, 15, "ground") # Левая полка
+    p.fill_rect(10, 3, 4, 2, 15, "ground") # Правая полка
+    p.fill_rect(2, 7, 4, 2, 15, "ground") # Левая полка 2
+
+    # Касса (ID=16) - справа от входа внутри
+    p.fill_rect(10, 8, 4, 1, 16, "ground")
+
+    return p

@@ -1,7 +1,7 @@
 import pygame
 import random
 from src.world.registry.tiles import TileRegistry
-from src.world.generation.prefabs import get_city_hall_prefab, get_mayor_house_prefab, get_apartment_building_prefab, apply_prefab
+from src.world.generation.prefabs import get_city_hall_prefab, get_mayor_house_prefab, get_apartment_building_prefab, get_supermarket_prefab, apply_prefab
 from src.core import config
 
 class World:
@@ -29,6 +29,10 @@ class World:
 
         # Кэш дверей зданий (Название здания -> (x, y) мировые координаты)
         self.building_doors = {}
+
+        # Кэш точек интереса внутри магазина (мировые координаты)
+        self.shop_cashier_pos = None
+        self.shop_shelves = []
 
         self.build_city_center()
 
@@ -165,7 +169,6 @@ class World:
         for y in range(highway_y + 3, mh_y):
             self.set_tile_by_index(mh_door_x, y, 4, layer="ground")
 
-        # Запоминаем дверь (в пикселях, центр тайла двери)
         self.building_doors["Дом Мэра"] = (mh_door_x * self.TILE_SIZE + self.TILE_SIZE/2, mh_y * self.TILE_SIZE - self.TILE_SIZE)
 
         # === 4. МНОГОЭТАЖКИ ===
@@ -191,6 +194,56 @@ class World:
             self.set_tile_by_index(a2_door_x - 1, y, 4, layer="ground")
 
         self.building_doors["Многоэтажка 2"] = (a2_door_x * self.TILE_SIZE, apt_y * self.TILE_SIZE - self.TILE_SIZE)
+
+        # === 5. СУПЕРМАРКЕТ ===
+        shop_prefab = get_supermarket_prefab()
+        # Строим слева от Мэрии, над дорогой
+        shop_x = ch_x - shop_prefab.width - 10
+        shop_y = highway_y - 2 - shop_prefab.height - 4
+        apply_prefab(self, shop_x, shop_y, shop_prefab)
+
+        # Дорожка к магазину (дверь у него снизу, ой, подождите, мы сделали дверь сверху в префабе)
+        # Переназначим дверь в префабе или проложим дорожку.
+        # В префабе дверь на x=8, y=0 (северная сторона).
+        # Раз магазин над дорогой, дверь лучше сделать снизу, чтобы выходила на шоссе!
+        # Переопределим дверь вручную:
+
+        shop_door_x = shop_x + 8
+        shop_door_y = shop_y + shop_prefab.height - 1
+
+        # Убираем старую северную дверь
+        self.set_tile_by_index(shop_door_x, shop_y, 5, layer="ground")
+        self.set_tile_by_index(shop_door_x - 1, shop_y, 5, layer="ground")
+        self.set_tile_by_index(shop_door_x, shop_y, 6, layer="roof")
+        self.set_tile_by_index(shop_door_x - 1, shop_y, 6, layer="roof")
+
+        # Делаем дверь снизу (на южной стороне)
+        self.set_tile_by_index(shop_door_x, shop_door_y, 14, layer="ground")
+        self.set_tile_by_index(shop_door_x - 1, shop_door_y, 14, layer="ground")
+        self.set_tile_by_index(shop_door_x, shop_door_y, None, layer="roof")
+        self.set_tile_by_index(shop_door_x - 1, shop_door_y, None, layer="roof")
+
+        # Дорожка к южной двери
+        for y in range(shop_door_y + 1, highway_y - 2):
+            self.set_tile_by_index(shop_door_x, y, 4, layer="ground")
+            self.set_tile_by_index(shop_door_x - 1, y, 4, layer="ground")
+
+        # Запоминаем двери магазина
+        self.building_doors["Супермаркет"] = (shop_door_x * self.TILE_SIZE, (shop_door_y + 1) * self.TILE_SIZE)
+
+        # Точки интереса: касса (в тайлах магазина касса на x=10, y=8)
+        # Место кассира: за кассой (y=7)
+        self.shop_cashier_pos = ((shop_x + 11.5) * self.TILE_SIZE, (shop_y + 7.5) * self.TILE_SIZE)
+        # Место для покупателя у кассы: перед кассой (y=9)
+        self.shop_queue_pos = ((shop_x + 11.5) * self.TILE_SIZE, (shop_y + 9.5) * self.TILE_SIZE)
+
+        # Точки интереса: полки
+        # Левая полка (x=2..5, y=3..4). Место для покупателя: снизу от полки (y=5)
+        self.shop_shelves.append(((shop_x + 3.5) * self.TILE_SIZE, (shop_y + 5.5) * self.TILE_SIZE))
+        # Правая полка (x=10..13, y=3..4). Покупатель снизу (y=5)
+        self.shop_shelves.append(((shop_x + 11.5) * self.TILE_SIZE, (shop_y + 5.5) * self.TILE_SIZE))
+        # Левая нижняя полка (x=2..5, y=7..8). Покупатель справа (x=6, y=7)
+        self.shop_shelves.append(((shop_x + 6.5) * self.TILE_SIZE, (shop_y + 7.5) * self.TILE_SIZE))
 
         self.update_dirty_chunks()
 

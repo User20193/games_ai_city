@@ -4,12 +4,11 @@ from src.core import config
 class PassportUI:
     def __init__(self, asset_manager):
         self.asset_manager = asset_manager
-        # Сделали карточку еще шире и длиннее для нового формата
         self.width = 280
         self.height = 420
         self.padding = 15
 
-        self.bg_color = config.COLORS["passport_bg"] # Полупрозрачный из конфига
+        self.bg_color = config.COLORS["passport_bg"]
         self.border_color = config.COLORS["passport_border"]
         self.text_color = config.COLORS["white"]
         self.accent_color = config.COLORS["passport_accent"]
@@ -22,6 +21,29 @@ class PassportUI:
         self.bg_surf = pygame.Surface((self.width, self.height), pygame.SRCALPHA)
         pygame.draw.rect(self.bg_surf, self.bg_color, (0, 0, self.width, self.height), border_radius=12)
 
+        # Состояние выдвижной панели (потребностей)
+        self.is_needs_open = False
+        self.needs_height = 120
+        self.current_needs_y = 0.0
+
+    def check_tab_click(self, mouse_pos, screen_width, screen_height):
+        x = screen_width - self.width - 20
+        y = (screen_height - self.height) // 2
+
+        tab_w = 60
+        tab_h = 15
+        tab_y = y + self.height + int(self.current_needs_y)
+        tab_rect = pygame.Rect(x + (self.width - tab_w)//2, tab_y, tab_w, tab_h)
+
+        if tab_rect.collidepoint(mouse_pos):
+            self.is_needs_open = not self.is_needs_open
+            return True
+        return False
+
+    def update(self, dt):
+        target_y = self.needs_height if self.is_needs_open else 0.0
+        self.current_needs_y += (target_y - self.current_needs_y) * 15 * dt
+
     def render(self, surface, citizen, screen_width, screen_height):
         if not citizen:
             return
@@ -29,10 +51,59 @@ class PassportUI:
         x = screen_width - self.width - 20
         y = (screen_height - self.height) // 2
 
+        # --- Выдвижная панель потребностей (рисуется ПОД паспортом) ---
+        if self.current_needs_y > 1:
+            needs_rect = pygame.Rect(x + 10, y + self.height - 20, self.width - 20, int(self.current_needs_y) + 20)
+            pygame.draw.rect(surface, (50, 55, 65, 230), needs_rect, border_bottom_left_radius=12, border_bottom_right_radius=12)
+            pygame.draw.rect(surface, self.border_color, needs_rect, width=2, border_bottom_left_radius=12, border_bottom_right_radius=12)
+
+            # Контент потребностей
+            if self.current_needs_y > 40:
+                content_y = y + self.height + 5
+
+                # Деньги
+                money = getattr(citizen, 'money', 0)
+                money_surf = self.asset_manager.render_text(f"Баланс: {money} L", self.small_size, (255, 215, 0))
+                surface.blit(money_surf, (x + 25, content_y))
+
+                # Запасы еды
+                food = getattr(citizen, 'food_supplies', 0)
+                food_surf = self.asset_manager.render_text(f"Еда дома: {food}", self.small_size, self.text_color)
+                surface.blit(food_surf, (x + 25, content_y + 20))
+
+                # Шкала голода
+                hunger = getattr(citizen, 'hunger', 100.0)
+                hunger_surf = self.asset_manager.render_text("Сытость:", self.small_size, self.text_color)
+                surface.blit(hunger_surf, (x + 25, content_y + 45))
+
+                bar_x = x + 90
+                bar_y = content_y + 45
+                bar_w = self.width - 130
+                bar_h = 12
+
+                pygame.draw.rect(surface, (100, 30, 30), (bar_x, bar_y, bar_w, bar_h), border_radius=4)
+                fill_w = max(0, int(bar_w * (hunger / 100.0)))
+
+                # Цвет шкалы зависит от уровня голода
+                bar_color = (50, 200, 50) if hunger > 50 else ((200, 200, 50) if hunger > 25 else (255, 50, 50))
+                if fill_w > 0:
+                    pygame.draw.rect(surface, bar_color, (bar_x, bar_y, fill_w, bar_h), border_radius=4)
+                pygame.draw.rect(surface, self.border_color, (bar_x, bar_y, bar_w, bar_h), width=1, border_radius=4)
+
+        # --- Основная панель паспорта ---
         bg_rect = pygame.Rect(x, y, self.width, self.height)
         surface.blit(self.bg_surf, (x, y))
         pygame.draw.rect(surface, self.border_color, bg_rect, width=3, border_radius=12)
 
+        # Язычок
+        tab_w = 60
+        tab_h = 15
+        tab_y = y + self.height + int(self.current_needs_y) - 2 # -2 чтобы скрыть шов
+        tab_rect = pygame.Rect(x + (self.width - tab_w)//2, tab_y, tab_w, tab_h)
+        pygame.draw.rect(surface, self.bg_color, tab_rect, border_bottom_left_radius=6, border_bottom_right_radius=6)
+        pygame.draw.rect(surface, self.border_color, tab_rect, width=2, border_bottom_left_radius=6, border_bottom_right_radius=6)
+
+        # Заголовок
         title = self.asset_manager.render_text("ID-КАРТА", self.title_size, self.border_color)
         title_rect = title.get_rect(centerx=x + self.width // 2, top=y + self.padding)
         surface.blit(title, title_rect)
@@ -43,7 +114,7 @@ class PassportUI:
 
         content_y = y + self.padding + 40
 
-        # --- ФОТО ---
+        # ФОТО
         photo_size = 80
         photo_x = x + (self.width - photo_size) // 2
         photo_rect = pygame.Rect(photo_x, content_y, photo_size, photo_size)
@@ -63,7 +134,7 @@ class PassportUI:
         pygame.draw.rect(surface, citizen.shirt_color, (photo_x + center_offset_x, content_y + p_head_h, p_body_w, p_body_h))
         pygame.draw.rect(surface, citizen.skin_color, (photo_x + head_offset_x, content_y + int(photo_size*0.1), p_head_w, p_head_h))
 
-        # --- ДАННЫЕ СТОЛБИКОМ (Лейбл сверху, Значение снизу) ---
+        # ДАННЫЕ СТОЛБИКОМ
         text_y = content_y + photo_size + 15
 
         name_str = f"{citizen.first_name} {citizen.last_name}"
@@ -74,15 +145,11 @@ class PassportUI:
         text_y += 35
 
         def draw_stacked_stat(label, value, y_pos):
-            # Лейбл маленьким шрифтом (серенький)
             lbl_surf = self.asset_manager.render_text(label, self.small_size, self.accent_color)
             surface.blit(lbl_surf, (x + self.padding + 10, y_pos))
-
-            # Значение под ним, шрифтом побольше (белый)
             val_surf = self.asset_manager.render_text(str(value), self.text_size, self.text_color)
             surface.blit(val_surf, (x + self.padding + 10, y_pos + 16))
-
-            return y_pos + 42 # Возвращаем новую координату Y для следующего блока
+            return y_pos + 42
 
         text_y = draw_stacked_stat("Возраст:", citizen.age, text_y)
         text_y = draw_stacked_stat("Работа:", citizen.job, text_y)

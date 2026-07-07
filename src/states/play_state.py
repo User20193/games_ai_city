@@ -6,6 +6,7 @@ from src.world.world import World
 from src.entities.citizen import Citizen
 from src.systems.entity_manager import EntityManager
 from src.systems.time_system import TimeSystem
+from src.systems.market_system import MarketSystem
 from src.ui.passport import PassportUI
 from src.core import config
 
@@ -25,6 +26,7 @@ class PlayState(State):
         self.show_roofs = True
 
         self.time_system = TimeSystem(self.game)
+        self.market_system = MarketSystem()
         self.entity_manager = EntityManager()
 
         self.passport_ui = PassportUI(self.game.asset_manager)
@@ -33,34 +35,35 @@ class PlayState(State):
         mayor_x = world_pixel_width / 2
         mayor_y = world_pixel_height / 2
 
-        # Функция для поиска безопасной позиции (чтобы не застрять в стене)
         def get_safe_spawn_pos(center_x, center_y, radius):
-            for _ in range(50): # Максимум 50 попыток
+            for _ in range(50):
                 cx = center_x + random.randint(-radius, radius)
                 cy = center_y + random.randint(-radius, radius)
-                # Проверяем тайл
                 tile_idx = self.world.get_tile_index(cx, cy)
                 if tile_idx is not None:
                     tile = self.world.tile_registry.get_tile(tile_idx)
-                    # Если не твердый (не стена) и не крыша (roof is solid now)
                     if tile and not tile.is_solid:
                         return cx, cy
-            return center_x, center_y # Фолбэк
+            return center_x, center_y
 
         # Мэр
         mx, my = get_safe_spawn_pos(mayor_x, mayor_y, 20)
         mayor = Citizen(mx, my, self.game.language, self.world, self.game.asset_manager)
         mayor.time_system = self.time_system
-        mayor.job = "Мэр"
+        mayor.market_system = self.market_system
         mayor.home_building = "Дом Мэра"
         mayor.home = "Дом Мэра"
+        mayor.job = "Мэр"
         self.entity_manager.add_entity(mayor)
 
-        # Тестовые жители
-        for _ in range(5):
+        # Назначаем первого кассиром, остальных безработными
+        for i in range(7):
             cx, cy = get_safe_spawn_pos(mayor_x, mayor_y, 100)
             c = Citizen(cx, cy, self.game.language, self.world, self.game.asset_manager)
             c.time_system = self.time_system
+            c.market_system = self.market_system
+            if i == 0:
+                c.job = "Кассир"
             self.entity_manager.add_entity(c)
 
         self.last_debug_text = ""
@@ -68,6 +71,9 @@ class PlayState(State):
 
     def update(self, dt, events):
         self.time_system.update(dt)
+        self.market_system.update(dt)
+
+        mouse_pos = pygame.mouse.get_pos()
 
         for event in events:
             if event.type == pygame.KEYDOWN:
@@ -76,24 +82,29 @@ class PlayState(State):
                 elif event.key == pygame.K_r:
                     self.show_roofs = not self.show_roofs
             elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
-                mouse_x, mouse_y = pygame.mouse.get_pos()
-                if self.time_system.check_tab_click((mouse_x, mouse_y)):
+                # 1. Проверяем клик по язычку времени
+                if self.time_system.check_tab_click(mouse_pos):
                     continue
-                mouse_x, mouse_y = pygame.mouse.get_pos()
-                world_x, world_y = self.camera.screen_to_world(mouse_x, mouse_y)
+                # 2. Проверяем клик по язычку паспорта
+                if self.selected_citizen and self.passport_ui.check_tab_click(mouse_pos, self.game.WINDOW_WIDTH, self.game.WINDOW_HEIGHT):
+                    continue
 
+                # 3. Иначе ищем жителя
+                world_x, world_y = self.camera.screen_to_world(mouse_pos[0], mouse_pos[1])
                 clicked_citizen = None
                 for entity in reversed(self.entity_manager.entities):
                     if isinstance(entity, Citizen) and entity.check_click(world_x, world_y):
                         clicked_citizen = entity
                         break
-
                 self.selected_citizen = clicked_citizen
 
         keys = pygame.key.get_pressed()
         self.camera.update(dt, keys, events)
         self.camera.update_screen_size(self.game.WINDOW_WIDTH, self.game.WINDOW_HEIGHT)
         self.entity_manager.update(dt)
+
+        # Обновляем анимацию язычка паспорта
+        self.passport_ui.update(dt)
 
     def render(self, surface):
         surface.fill(config.COLORS["void_bg"])
@@ -106,7 +117,7 @@ class PlayState(State):
 
         self.time_system.render_day_night_cycle(surface)
 
-        debug_text = f"Cam: ({int(self.camera.x)}, {int(self.camera.y)}) | Zoom: {self.camera.zoom:.2f}"
+        debug_text = f"Cam: ({int(self.camera.x)}, {int(self.camera.y)}) | Цена еды: {self.market_system.get_price()} L"
 
         if debug_text != self.last_debug_text or not self.cached_debug_surf:
             self.last_debug_text = debug_text

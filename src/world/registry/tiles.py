@@ -42,3 +42,6 @@ class TileRegistry:
         self.register(Tile(11, "Chair", (210, 105, 30), is_solid=True))
         self.register(Tile(12, "Asphalt", (60, 60, 65)))
         self.register(Tile(13, "AsphaltLine", (220, 220, 220)))
+        self.register(Tile(14, "ShopFloor", (210, 210, 225)))
+        self.register(Tile(15, "Shelf", (80, 150, 100), is_solid=True))
+        self.register(Tile(16, "CashRegister", (50, 50, 60), is_solid=True))
