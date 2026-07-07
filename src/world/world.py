@@ -1,7 +1,7 @@
 import pygame
 import random
 from src.world.registry.tiles import TileRegistry
-from src.world.generation.prefabs import get_city_hall_prefab, get_mayor_house_prefab, apply_prefab
+from src.world.generation.prefabs import get_city_hall_prefab, get_mayor_house_prefab, get_apartment_building_prefab, apply_prefab
 from src.core import config
 
 class World:
@@ -129,26 +129,57 @@ class World:
         center_tx = (self.WORLD_WIDTH * self.CHUNK_SIZE) // 2
         center_ty = (self.WORLD_HEIGHT * self.CHUNK_SIZE) // 2
 
+        # 1. Мэрия
         city_hall = get_city_hall_prefab()
         ch_x = center_tx - city_hall.width // 2
         ch_y = center_ty - city_hall.height // 2
         apply_prefab(self, ch_x, ch_y, city_hall)
 
+        # 2. Дом Мэра
         mayor_house = get_mayor_house_prefab()
         mh_x = ch_x + city_hall.width + 6
         mh_y = ch_y + 2
         apply_prefab(self, mh_x, mh_y, mayor_house)
 
+        # 3. Главная дорога
         road_y = ch_y + city_hall.height
-        for x in range(ch_x - 6, ch_x + city_hall.width + 20):
-            for dy in range(3):
+        road_start_x = ch_x - 10
+        road_end_x = ch_x + city_hall.width + 25
+        for x in range(road_start_x, road_end_x):
+            for dy in range(4): # Сделали дорогу чуть шире (4 тайла)
                 self.set_tile_by_index(x, road_y + dy, 4, layer="ground")
 
+        # 4. Дорожка к дому мэра
         mh_door_x = mh_x + mayor_house.width // 2
         for y in range(mh_y + mayor_house.height, road_y):
             self.set_tile_by_index(mh_door_x, y, 4, layer="ground")
             self.set_tile_by_index(mh_door_x - 1, y, 4, layer="ground")
 
+        # 5. Квартиры (через дорогу от мэрии)
+        apt_prefab = get_apartment_building_prefab()
+        apt_y = road_y + 6 # Через дорогу и немного отступа
+
+        # Квартира 1
+        apt1_x = ch_x - 4
+        apply_prefab(self, apt1_x, apt_y, apt_prefab)
+
+        # Дорожка к Квартире 1
+        a1_door_x = apt1_x + apt_prefab.width // 2
+        for y in range(road_y + 4, apt_y + apt_prefab.height):
+            self.set_tile_by_index(a1_door_x, y, 4, layer="ground")
+            self.set_tile_by_index(a1_door_x - 1, y, 4, layer="ground")
+
+        # Квартира 2
+        apt2_x = ch_x + apt_prefab.width + 4
+        apply_prefab(self, apt2_x, apt_y, apt_prefab)
+
+        # Дорожка к Квартире 2
+        a2_door_x = apt2_x + apt_prefab.width // 2
+        for y in range(road_y + 4, apt_y + apt_prefab.height):
+            self.set_tile_by_index(a2_door_x, y, 4, layer="ground")
+            self.set_tile_by_index(a2_door_x - 1, y, 4, layer="ground")
+
+        # Открытые двери мэрии
         door_x = center_tx
         door_y = ch_y + city_hall.height - 1
         self.set_tile_by_index(door_x + 1, door_y, 7, layer="ground")

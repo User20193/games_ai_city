@@ -88,3 +88,25 @@ def get_city_hall_prefab():
     p.set_tile(door_x - 1, door_y, None, "roof")
 
     return p
+
+def get_apartment_building_prefab():
+    p = Prefab("Apartment", 12, 10)
+
+    # Заливаем все здание стенами на уровне земли, так как это "кроличья нора"
+    # То есть внутрь никто физически не заходит (is_solid=True)
+    p.fill_rect(0, 0, 12, 10, 5, "ground")
+
+    # Крыша покрывает все здание
+    p.fill_rect(0, 0, 12, 10, 6, "roof")
+
+    # Дверь внизу по центру
+    door_x = 6
+    door_y = 9
+    p.set_tile(door_x, door_y, 7, "ground") # Дверь
+    p.set_tile(door_x - 1, door_y, 7, "ground") # Двойная дверь
+
+    # Убираем крышу над дверью, чтобы ее было видно
+    p.set_tile(door_x, door_y, None, "roof")
+    p.set_tile(door_x - 1, door_y, None, "roof")
+
+    return p

@@ -34,6 +34,7 @@ class Citizen(Entity):
 
         self.age = random.randint(18, 80)
         self.job = "Безработный"
+        self.home = f"Многоэтажка {random.randint(1, 2)}, Кв. {random.randint(1, 40)}"
 
         self.generate_thought()
 
