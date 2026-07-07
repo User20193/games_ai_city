@@ -41,15 +41,26 @@ class Citizen(Entity):
 
         self.is_visible = True
         self.time_system = None
+        self.market_system = None # Ссылка на рынок
 
-        # Переменные для пути (A*)
         self.path = []
+
+        # Экономика и потребности
+        self.money = 1000
+        self.hunger = random.uniform(50.0, 100.0)
+        self.food_supplies = random.randint(0, 5)
 
         self.generate_thought()
 
     def generate_thought(self):
         if self.language:
-            self.thought = self.language.generate_thought()
+            # Если очень голоден, думает только о еде
+            if self.hunger < 30.0:
+                food = self.language.get_word("nouns") # в идеале отфильтровать съедобное
+                self.thought = f"Хочется {food}..."
+            else:
+                self.thought = self.language.generate_thought()
+
             self.thought_timer = random.uniform(7.0, 10.0)
 
             if self.thought and self.asset_manager:
@@ -78,7 +89,6 @@ class Citizen(Entity):
         return False
 
     def _move_towards_target(self, dt):
-        """Возвращает True, если достиг цели."""
         dx = self.target_x - self.x
         dy = self.target_y - self.y
         dist = math.hypot(dx, dy)
@@ -98,27 +108,70 @@ class Citizen(Entity):
         return False
 
     def update(self, dt):
-        # 1. Расписание (комендантский час)
+        # Обновление потребностей
+        # Ускорение падения голода если время ускорено
+        speed_mult = self.time_system.time_speed if self.time_system else 1.0
+        # Голод падает на 10 единиц в игровой час (60 сек)
+        self.hunger -= (10.0 / 60.0) * dt * speed_mult
+        if self.hunger < 0: self.hunger = 0.0
+        if self.hunger > 100.0: self.hunger = 100.0
+
+        # Питание дома (утром или вечером, если есть запасы)
+        if self.state == "SLEEPING_INSIDE" and self.hunger < 80.0 and self.food_supplies > 0:
+            self.food_supplies -= 1
+            self.hunger = 100.0
+
+        # 1. Расписание
         if self.time_system:
             t = self.time_system.game_time
             is_night = (t >= 22.0 or t < 6.0)
 
+            # Работа кассиром
+            if self.job == "Кассир" and not is_night:
+                if 7.8 <= t < 19.8: # Рабочая смена 07:50 - 19:50
+                    if self.state != "WORKING":
+                        self.state = "WORKING"
+                        if self.world and self.world.shop_cashier_pos:
+                            start_pos = (self.x + self.width/2, self.y + self.height)
+                            self.path = astar_search(self.world, start_pos, self.world.shop_cashier_pos)
+                            if self.path:
+                                self.target_x, self.target_y = self.path.pop(0)
+                                self.target_x -= self.width / 2
+                                self.target_y -= self.height
+                            else:
+                                self.target_x, self.target_y = self.world.shop_cashier_pos
+                                self.target_x -= self.width / 2
+                                self.target_y -= self.height
+                elif self.state == "WORKING":
+                    self.state = "IDLE" # Смена закончилась
+
+            # Поход в магазин за едой (только днем, если не кассир)
+            if self.job != "Кассир" and not is_night and self.state in ["IDLE", "WANDER"]:
+                # Если голоден или нет еды дома
+                if (self.hunger < 40.0 or self.food_supplies == 0) and self.money >= 50:
+                    self.state = "SHOPPING_GOTO_SHELF"
+                    if self.world and self.world.shop_shelves:
+                        shelf_pos = random.choice(self.world.shop_shelves)
+                        start_pos = (self.x + self.width/2, self.y + self.height)
+                        self.path = astar_search(self.world, start_pos, shelf_pos)
+                        if self.path:
+                            self.target_x, self.target_y = self.path.pop(0)
+                            self.target_x -= self.width / 2
+                            self.target_y -= self.height
+
+            # Комендантский час
             if is_night and self.state not in ["GOING_HOME", "SLEEPING_INSIDE"]:
                 self.state = "GOING_HOME"
                 door_coords = self.world.building_doors.get(self.home_building)
                 if door_coords:
-                    # Вместо прямой ходьбы вычисляем маршрут по A*
-                    start_pos = (self.x + self.width/2, self.y + self.height) # Координаты ног
+                    start_pos = (self.x + self.width/2, self.y + self.height)
                     self.path = astar_search(self.world, start_pos, door_coords)
 
                     if self.path:
-                        # Берем первую точку из пути
                         self.target_x, self.target_y = self.path.pop(0)
-                        # Корректируем, чтобы центр ног шел к точке
                         self.target_x -= self.width / 2
                         self.target_y -= self.height
                     else:
-                        # Если путь вообще не найден (заглушка), просто идем напрямую (вряд ли сработает, но пусть будет)
                         self.target_x, self.target_y = door_coords
                         self.target_x -= self.width / 2
                         self.target_y -= self.height
@@ -175,18 +228,47 @@ class Citizen(Entity):
                 self.state = "IDLE"
                 self.state_timer = random.uniform(1.0, 4.0)
 
-        elif self.state == "GOING_HOME":
+        elif self.state in ["GOING_HOME", "WORKING", "SHOPPING_GOTO_SHELF", "SHOPPING_GOTO_CASHIER"]:
             reached = self._move_towards_target(dt)
             if reached:
                 if self.path:
-                    # Берем следующую точку пути
                     self.target_x, self.target_y = self.path.pop(0)
                     self.target_x -= self.width / 2
                     self.target_y -= self.height
                 else:
-                    # Путь закончился, мы у двери
-                    self.state = "SLEEPING_INSIDE"
-                    self.is_visible = False
+                    # Достигли финальной точки
+                    if self.state == "GOING_HOME":
+                        self.state = "SLEEPING_INSIDE"
+                        self.is_visible = False
+                    elif self.state == "WORKING":
+                        # Пришли на кассу, стоим работаем
+                        pass
+                    elif self.state == "SHOPPING_GOTO_SHELF":
+                        # Дошли до полки, выбираем товар (стоим 2 сек)
+                        self.state = "SHOPPING_PICKING"
+                        self.state_timer = 2.0
+                    elif self.state == "SHOPPING_GOTO_CASHIER":
+                        # Дошли до кассы, покупаем
+                        if self.market_system:
+                            price = self.market_system.buy_goods()
+                            if self.money >= price:
+                                self.money -= price
+                                self.food_supplies += 3 # Купили еды
+                                self.hunger = 100.0 # Поели по дороге
+                        self.state = "IDLE" # Идем гулять дальше
+
+        elif self.state == "SHOPPING_PICKING":
+            self.state_timer -= dt
+            if self.state_timer <= 0:
+                self.state = "SHOPPING_GOTO_CASHIER"
+                if self.world and hasattr(self.world, 'shop_queue_pos'):
+                    start_pos = (self.x + self.width/2, self.y + self.height)
+                    self.path = astar_search(self.world, start_pos, self.world.shop_queue_pos)
+                    if self.path:
+                        self.target_x, self.target_y = self.path.pop(0)
+                        self.target_x -= self.width / 2
+                        self.target_y -= self.height
+
 
     def check_click(self, mouse_world_x, mouse_world_y):
         if not self.is_visible:
