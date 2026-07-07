@@ -22,7 +22,7 @@ COLORS = {
     "btn_hover": (255, 215, 0),
 
     # UI Паспорта
-    "passport_bg": (40, 45, 55, 230),
+    "passport_bg": (40, 45, 55, 180),
     "passport_border": (100, 150, 200),
     "passport_accent": (200, 200, 200),
     "passport_photo_bg": (100, 100, 120),
@@ -48,9 +48,9 @@ FONTS = {
     "title_size": 48,
     "menu_size": 24,
     "thought_size": 12,
-    "passport_title": 24,
-    "passport_text": 18,
-    "passport_small": 14
+    "passport_title": 20,
+    "passport_text": 16,
+    "passport_small": 12
 }
 
 # Внутриигровое время

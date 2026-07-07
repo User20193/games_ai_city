@@ -34,14 +34,14 @@ class Citizen(Entity):
 
         self.age = random.randint(18, 80)
         self.job = "Безработный"
-
         self.home_building = f"Многоэтажка {random.randint(1, 2)}"
         self.home_apt = random.randint(1, 40)
-        self.home = f"{self.home_building}, Кв. {self.home_apt}"
+        self.home = f"Дом {self.home_building.split(' ')[1]}, Кв. {self.home_apt}"
 
         # Системные флаги
         self.is_visible = True
-        self.time_system = None # Ссылка передается позже при спавне
+        self.time_system = None
+        self.stuck_timer = 0.0
 
         self.generate_thought()
 
@@ -83,12 +83,12 @@ class Citizen(Entity):
 
             if is_night and self.state not in ["GOING_HOME", "SLEEPING_INSIDE"]:
                 self.state = "GOING_HOME"
-                # Ищем координаты двери дома
+                self.stuck_timer = 0.0 # Сбрасываем таймер застревания
                 door_coords = self.world.building_doors.get(self.home_building)
                 if door_coords:
                     self.target_x, self.target_y = door_coords
                 else:
-                    self.is_visible = False # Если дом не найден, просто исчезаем (фолбэк)
+                    self.is_visible = False
                     self.state = "SLEEPING_INSIDE"
 
             elif not is_night and self.state == "SLEEPING_INSIDE":
@@ -96,7 +96,6 @@ class Citizen(Entity):
                 self.is_visible = True
                 self.state_timer = 2.0
 
-        # Если спит внутри дома, больше ничего не обновляем
         if self.state == "SLEEPING_INSIDE":
             self.thought_timer = 0
             self.thought = ""
@@ -115,7 +114,7 @@ class Citizen(Entity):
             if self.thought_timer >= 0:
                 self.generate_thought()
 
-        # 3. FSM (Машина состояний)
+        # 3. FSM
         if self.state == "IDLE":
             self.state_timer -= dt
             if self.state_timer <= 0:
@@ -140,7 +139,10 @@ class Citizen(Entity):
             dy = self.target_y - self.y
             dist = math.hypot(dx, dy)
 
-            if dist < 1.0:
+            # Радиус входа домой увеличиваем до 8 пикселей (1 тайл)
+            reach_radius = 8.0 if self.state == "GOING_HOME" else 1.0
+
+            if dist < reach_radius:
                 if self.state == "GOING_HOME":
                     self.state = "SLEEPING_INSIDE"
                     self.is_visible = False
@@ -151,18 +153,33 @@ class Citizen(Entity):
                 step_x = (dx / dist) * self.speed * dt
                 step_y = (dy / dist) * self.speed * dt
 
+                moved_x = False
+                moved_y = False
+
                 if not self._check_collision(self.x + step_x, self.y):
                     self.x += step_x
+                    moved_x = True
 
                 if not self._check_collision(self.x, self.y + step_y):
                     self.y += step_y
+                    moved_y = True
 
-                # Застревание (только при гулянии сбрасываем цель)
-                if self.state == "WANDER" and self._check_collision(self.x + step_x, self.y) and self._check_collision(self.x, self.y + step_y):
-                    self.state = "IDLE"
-                    self.state_timer = random.uniform(0.5, 1.5)
-                    self.target_x = self.x
-                    self.target_y = self.y
+                # Логика застревания
+                if not moved_x and not moved_y:
+                    if self.state == "WANDER":
+                        self.state = "IDLE"
+                        self.state_timer = random.uniform(0.5, 1.5)
+                        self.target_x = self.x
+                        self.target_y = self.y
+                    elif self.state == "GOING_HOME":
+                        # Если застрял идучи домой, ждем пару секунд
+                        self.stuck_timer += dt
+                        if self.stuck_timer > 3.0: # Если 3 секунды буксует в стену
+                            # Телепортируемся домой
+                            self.x = self.target_x
+                            self.y = self.target_y
+                            self.state = "SLEEPING_INSIDE"
+                            self.is_visible = False
 
     def check_click(self, mouse_world_x, mouse_world_y):
         if not self.is_visible:
