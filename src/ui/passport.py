@@ -4,8 +4,8 @@ from src.core import config
 class PassportUI:
     def __init__(self, asset_manager):
         self.asset_manager = asset_manager
-        self.width = 300
-        self.height = 180
+        self.width = 320 # Увеличили ширину (было 300)
+        self.height = 190 # Чуть увеличили высоту (было 180)
         self.padding = 15
 
         # Цвета
@@ -41,8 +41,8 @@ class PassportUI:
         # Рамка
         pygame.draw.rect(surface, self.border_color, bg_rect, width=2, border_radius=8)
 
-        # Заголовок
-        title = self.asset_manager.render_text("Удостоверение Личности", self.title_size, self.border_color)
+        # Заголовок (пишем Паспорт, чтобы гарантированно влезло)
+        title = self.asset_manager.render_text("Паспорт", self.title_size, self.border_color)
         surface.blit(title, (x + self.padding, y + self.padding))
 
         # Линия под заголовком
@@ -98,5 +98,6 @@ class PassportUI:
         age_label = self.asset_manager.render_text(f"Возраст: {citizen.age}", self.text_size, self.text_color)
         surface.blit(age_label, (x + self.padding, bottom_y))
 
-        job_label = self.asset_manager.render_text(f"Род деят.: {citizen.job}", self.text_size, self.text_color)
+        # Пишем просто "Работа:"
+        job_label = self.asset_manager.render_text(f"Работа: {citizen.job}", self.text_size, self.text_color)
         surface.blit(job_label, (x + self.padding, bottom_y + 25))
