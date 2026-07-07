@@ -93,7 +93,7 @@ def get_apartment_building_prefab():
     p = Prefab("Apartment", 12, 10)
 
     # Внутри деревянный пол
-    p.fill_rect(0, 0, 12, 10, 8, "ground")
+    p.fill_rect(0, 0, 12, 10, 5, "ground")
 
     # Стены по периметру
     p.draw_perimeter(0, 0, 12, 10, 5, "ground")

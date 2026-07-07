@@ -6,7 +6,7 @@ class PassportUI:
         self.asset_manager = asset_manager
         # Вертикальный дизайн
         self.width = 240
-        self.height = 360
+        self.height = 380 # Сделали чуть выше
         self.padding = 15
 
         # Цвета
@@ -17,9 +17,9 @@ class PassportUI:
         self.photo_bg = config.COLORS["passport_photo_bg"]
 
         # Шрифты
-        self.title_size = config.FONTS["passport_title"]
-        self.text_size = config.FONTS["passport_text"]
-        self.small_size = config.FONTS["passport_small"]
+        self.title_size = config.FONTS["passport_title"] # Это 24
+        self.text_size = config.FONTS["passport_text"] # Это 18
+        self.small_size = config.FONTS["passport_small"] # Это 14
 
         # Кэшируем полупрозрачную подложку
         self.bg_surf = pygame.Surface((self.width, self.height), pygame.SRCALPHA)
@@ -29,7 +29,7 @@ class PassportUI:
         if not citizen:
             return
 
-        # Позиция: справа по центру
+        # Позиция: справа по центру (отодвинем чуть от края)
         x = screen_width - self.width - 20
         y = (screen_height - self.height) // 2
 
@@ -53,7 +53,7 @@ class PassportUI:
         content_y = y + self.padding + 45
 
         # --- ФОТО (По центру) ---
-        photo_size = 96 # Сделали фото побольше
+        photo_size = 96
         photo_x = x + (self.width - photo_size) // 2
         photo_rect = pygame.Rect(photo_x, content_y, photo_size, photo_size)
 
@@ -77,23 +77,22 @@ class PassportUI:
         pygame.draw.rect(surface, citizen.skin_color, (photo_x + head_offset_x, content_y + int(photo_size*0.1), p_head_w, p_head_h))
 
         # --- ДАННЫЕ СТОЛБИКОМ ---
-        text_y = content_y + photo_size + 20
-        line_spacing = 25
+        text_y = content_y + photo_size + 15
+        line_spacing = 30 # Увеличили расстояние между строками
 
-        # ФИО
+        # ФИО (Используем title_size (24), а не 48, чтобы влезало)
         name_str = f"{citizen.first_name} {citizen.last_name}"
         name_val = self.asset_manager.render_text(name_str, self.title_size, self.text_color)
         name_rect = name_val.get_rect(centerx=x + self.width // 2, top=text_y)
         surface.blit(name_val, name_rect)
 
-        text_y += line_spacing + 15
+        text_y += line_spacing + 10
 
         # Функция для отрисовки пары Лейбл-Значение
         def draw_stat(label, value, y_pos):
             lbl_surf = self.asset_manager.render_text(label, self.small_size, self.accent_color)
             val_surf = self.asset_manager.render_text(str(value), self.text_size, self.text_color)
             surface.blit(lbl_surf, (x + self.padding, y_pos))
-            # Выравниваем значение по правому краю
             val_rect = val_surf.get_rect(right=x + self.width - self.padding, top=y_pos - 2)
             surface.blit(val_surf, val_rect)
 
