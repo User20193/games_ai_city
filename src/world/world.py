@@ -166,7 +166,7 @@ class World:
             self.set_tile_by_index(mh_door_x, y, 4, layer="ground")
 
         # Запоминаем дверь (в пикселях, центр тайла двери)
-        self.building_doors["Дом Мэра"] = (mh_door_x * self.TILE_SIZE + self.TILE_SIZE/2, mh_y * self.TILE_SIZE + self.TILE_SIZE/2)
+        self.building_doors["Дом Мэра"] = (mh_door_x * self.TILE_SIZE + self.TILE_SIZE/2, mh_y * self.TILE_SIZE - self.TILE_SIZE)
 
         # === 4. МНОГОЭТАЖКИ ===
         apt_prefab = get_apartment_building_prefab()
@@ -180,7 +180,7 @@ class World:
             self.set_tile_by_index(a1_door_x, y, 4, layer="ground")
             self.set_tile_by_index(a1_door_x - 1, y, 4, layer="ground")
 
-        self.building_doors["Многоэтажка 1"] = (a1_door_x * self.TILE_SIZE, apt_y * self.TILE_SIZE + self.TILE_SIZE/2)
+        self.building_doors["Многоэтажка 1"] = (a1_door_x * self.TILE_SIZE, apt_y * self.TILE_SIZE - self.TILE_SIZE)
 
         # Квартира 2
         apt2_x = ch_x + 6
@@ -190,7 +190,7 @@ class World:
             self.set_tile_by_index(a2_door_x, y, 4, layer="ground")
             self.set_tile_by_index(a2_door_x - 1, y, 4, layer="ground")
 
-        self.building_doors["Многоэтажка 2"] = (a2_door_x * self.TILE_SIZE, apt_y * self.TILE_SIZE + self.TILE_SIZE/2)
+        self.building_doors["Многоэтажка 2"] = (a2_door_x * self.TILE_SIZE, apt_y * self.TILE_SIZE - self.TILE_SIZE)
 
         self.update_dirty_chunks()
 
