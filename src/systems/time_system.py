@@ -13,8 +13,12 @@ class TimeSystem:
         self.cached_shadow_surf = None
 
         # Размеры выпадающей панельки
-        self.ui_width = 180
+        self.ui_width = 240 # Увеличили ширину
         self.ui_height = 50
+
+        # Состояние панельки (открыта/закрыта)
+        self.is_open = True
+        self.current_y = 0.0 # Для анимации выезжания
 
         # Кэш иконок
         self.icons = self._generate_icons()
@@ -53,16 +57,6 @@ class TimeSystem:
         return icons
 
     def get_time_phase(self):
-        """
-        Возвращает фазу времени и соответствующий ей цвет и иконку.
-        Утро: 06:00 - 12:00
-        День: 12:00 - 18:00
-        Вечер: 18:00 - 00:00
-        Ночь: 00:00 - 06:00
-        Дополнительно (для визуала):
-        Рассвет 05:00 - 07:00
-        Закат 18:00 - 20:00
-        """
         t = self.game_time
         if 5.0 <= t < 7.0:
             return "Рассвет", (255, 200, 150), self.icons["half_sun"]
@@ -78,23 +72,29 @@ class TimeSystem:
             return "Ночь", (100, 100, 150), self.icons["moon"]
 
     def update(self, dt):
-        self.game_time += dt * (self.time_speed / 60.0)
+        # Обычное или ускоренное время (если зажата 'F')
+        keys = pygame.key.get_pressed()
+        speed_mult = 300.0 if keys[pygame.K_f] else 1.0
+
+        self.game_time += dt * (self.time_speed * speed_mult / 60.0)
         if self.game_time >= 24.0:
             self.game_time -= 24.0
 
+        # Анимация выезда/задвигания панельки
+        target_y = 0.0 if self.is_open else -float(self.ui_height)
+        # Плавное движение
+        self.current_y += (target_y - self.current_y) * 10 * dt
+
     def render_day_night_cycle(self, surface):
-        """Отрисовывает полупрозрачный слой в зависимости от времени суток."""
         alpha = 0
         t = self.game_time
 
         if t < 5.0 or t >= 20.0:
             alpha = 180 # Ночь
         elif 5.0 <= t < 7.0:
-            # Рассвет (светлеет)
             progress = (t - 5.0) / 2.0
             alpha = int(180 * (1.0 - progress))
         elif 18.0 <= t < 20.0:
-            # Закат (темнеет)
             progress = (t - 18.0) / 2.0
             alpha = int(180 * progress)
 
@@ -104,44 +104,56 @@ class TimeSystem:
             dark_surface.fill((base_r, base_g, base_b, alpha))
             surface.blit(dark_surface, (0, 0))
 
+    def check_tab_click(self, mouse_pos):
+        """Проверяет клик по язычку."""
+        # Размеры панельки
+        x = self.game.WINDOW_WIDTH - self.ui_width - 20 # Правый верхний угол
+        y = int(self.current_y)
+        tab_w = 40
+        tab_h = 10
+        tab_rect = pygame.Rect(x + (self.ui_width - tab_w)//2, y + self.ui_height, tab_w, tab_h)
+
+        if tab_rect.collidepoint(mouse_pos):
+            self.is_open = not self.is_open
+            return True
+        return False
+
     def render_ui(self, surface):
-        """Отрисовывает выпадающую панельку со временем сверху по центру."""
         hours = int(self.game_time)
         minutes = int((self.game_time - hours) * 60)
         time_str = f"{hours:02d}:{minutes:02d}"
 
         phase_name, phase_color, icon = self.get_time_phase()
 
-        # Размеры панельки
-        x = (self.game.WINDOW_WIDTH - self.ui_width) // 2
-        y = 0
+        # Размеры панельки (в правом верхнем углу)
+        x = self.game.WINDOW_WIDTH - self.ui_width - 20
+        y = int(self.current_y)
 
-        # Рисуем подложку (как бы висит сверху)
         panel_rect = pygame.Rect(x, y, self.ui_width, self.ui_height)
         pygame.draw.rect(surface, (40, 45, 55, 230), panel_rect, border_bottom_left_radius=15, border_bottom_right_radius=15)
         pygame.draw.rect(surface, config.COLORS["passport_border"], panel_rect, width=2, border_bottom_left_radius=15, border_bottom_right_radius=15)
 
-        # Рисуем "язычок" снизу (декоративный элемент)
+        # Рисуем "язычок" снизу
         tab_w = 40
         tab_h = 10
         tab_rect = pygame.Rect(x + (self.ui_width - tab_w)//2, y + self.ui_height, tab_w, tab_h)
         pygame.draw.rect(surface, (40, 45, 55, 230), tab_rect, border_bottom_left_radius=5, border_bottom_right_radius=5)
         pygame.draw.rect(surface, config.COLORS["passport_border"], tab_rect, width=2, border_bottom_left_radius=5, border_bottom_right_radius=5)
 
-        # Отрисовка иконки слева
-        surface.blit(icon, (x + 15, y + 12))
+        # Рисуем контент только если панель хоть чуть-чуть видно
+        if y > -self.ui_height + 5:
+            # Отрисовка иконки слева
+            surface.blit(icon, (x + 15, y + 12))
 
-        # Отрисовка названия фазы (с цветом, зависящим от времени суток)
-        phase_surf = self.game.asset_manager.render_text(phase_name, config.FONTS["passport_small"], phase_color)
-        surface.blit(phase_surf, (x + 45, y + 15))
+            # Отрисовка названия фазы (Рассвет, Утро и т.д.)
+            phase_surf = self.game.asset_manager.render_text(phase_name, config.FONTS["passport_small"], phase_color)
+            surface.blit(phase_surf, (x + 45, y + 15))
 
-        # Отрисовка самого времени (справа)
-        # Если время изменилось, обновляем кэш
-        if time_str != self.last_text or not self.cached_ui_surf:
-            self.last_text = time_str
-            self.cached_ui_surf = self.game.asset_manager.render_text(time_str, config.FONTS["passport_title"], config.COLORS["white"])
+            if time_str != self.last_text or not self.cached_ui_surf:
+                self.last_text = time_str
+                self.cached_ui_surf = self.game.asset_manager.render_text(time_str, config.FONTS["passport_title"], config.COLORS["white"])
 
-        if self.cached_ui_surf:
-            # Выравниваем по правому краю
-            time_rect = self.cached_ui_surf.get_rect(right=x + self.ui_width - 15, centery=y + self.ui_height//2)
-            surface.blit(self.cached_ui_surf, time_rect)
+            if self.cached_ui_surf:
+                # Выравниваем по правому краю
+                time_rect = self.cached_ui_surf.get_rect(right=x + self.ui_width - 15, centery=y + self.ui_height//2)
+                surface.blit(self.cached_ui_surf, time_rect)

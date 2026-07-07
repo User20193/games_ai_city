@@ -77,6 +77,9 @@ class PlayState(State):
                     self.show_roofs = not self.show_roofs
             elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
                 mouse_x, mouse_y = pygame.mouse.get_pos()
+                if self.time_system.check_tab_click((mouse_x, mouse_y)):
+                    continue
+                mouse_x, mouse_y = pygame.mouse.get_pos()
                 world_x, world_y = self.camera.screen_to_world(mouse_x, mouse_y)
 
                 clicked_citizen = None
