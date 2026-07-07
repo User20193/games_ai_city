@@ -27,6 +27,9 @@ class World:
         self._temp_surf_ground = None
         self._temp_surf_roof = None
 
+        # Кэш дверей зданий (Название здания -> (x, y) мировые координаты)
+        self.building_doors = {}
+
         self.build_city_center()
 
     def get_tile_index(self, world_x, world_y, layer="ground"):
@@ -130,73 +133,64 @@ class World:
 
         max_tx = self.WORLD_WIDTH * self.CHUNK_SIZE
 
-        # === 1. ГЛАВНОЕ ШОССЕ (Идет через весь мир по оси X) ===
+        # === 1. ГЛАВНОЕ ШОССЕ ===
         highway_y = center_ty
-
         for x in range(max_tx):
-            self.set_tile_by_index(x, highway_y - 2, 4, layer="ground") # Верхний тротуар
-            self.set_tile_by_index(x, highway_y - 1, 12, layer="ground") # Асфальт (верхняя полоса)
-
-            # Разметка по центру (пунктир)
+            self.set_tile_by_index(x, highway_y - 2, 4, layer="ground")
+            self.set_tile_by_index(x, highway_y - 1, 12, layer="ground")
             if x % 4 < 2:
-                self.set_tile_by_index(x, highway_y, 13, layer="ground") # Белая полоса
+                self.set_tile_by_index(x, highway_y, 13, layer="ground")
             else:
-                self.set_tile_by_index(x, highway_y, 12, layer="ground") # Асфальт
+                self.set_tile_by_index(x, highway_y, 12, layer="ground")
+            self.set_tile_by_index(x, highway_y + 1, 12, layer="ground")
+            self.set_tile_by_index(x, highway_y + 2, 4, layer="ground")
 
-            self.set_tile_by_index(x, highway_y + 1, 12, layer="ground") # Асфальт (нижняя полоса)
-            self.set_tile_by_index(x, highway_y + 2, 4, layer="ground") # Нижний тротуар
-
-
-        # === 2. МЭРИЯ (Отодвигаем вверх от дороги) ===
+        # === 2. МЭРИЯ ===
         city_hall = get_city_hall_prefab()
         ch_x = center_tx - city_hall.width // 2
-        ch_y = highway_y - 2 - city_hall.height - 4 # Отступ 4 тайла от верхнего тротуара
+        ch_y = highway_y - 2 - city_hall.height - 4
         apply_prefab(self, ch_x, ch_y, city_hall)
-
-        # Дорожка к дверям Мэрии (спускается к верхнему тротуару)
-        door_x = center_tx
-        door_y = ch_y + city_hall.height - 1
 
         for y in range(ch_y + city_hall.height, highway_y - 2):
             self.set_tile_by_index(center_tx, y, 4, layer="ground")
             self.set_tile_by_index(center_tx - 1, y, 4, layer="ground")
 
-
-        # === 3. ДОМ МЭРА (Справа внизу от дороги) ===
+        # === 3. ДОМ МЭРА ===
         mayor_house = get_mayor_house_prefab()
         mh_x = center_tx + city_hall.width + 10
-        mh_y = highway_y + 3 + 4 # Отступ 4 тайла от нижнего тротуара
+        mh_y = highway_y + 3 + 4
         apply_prefab(self, mh_x, mh_y, mayor_house)
 
-        # Дорожка к дому мэра (поднимается к нижнему тротуару)
         mh_door_x = mh_x + 4
         for y in range(highway_y + 3, mh_y):
             self.set_tile_by_index(mh_door_x, y, 4, layer="ground")
 
+        # Запоминаем дверь (в пикселях, центр тайла двери)
+        self.building_doors["Дом Мэра"] = (mh_door_x * self.TILE_SIZE + self.TILE_SIZE/2, mh_y * self.TILE_SIZE + self.TILE_SIZE/2)
 
-        # === 4. МНОГОЭТАЖКИ (Слева внизу от дороги) ===
+        # === 4. МНОГОЭТАЖКИ ===
         apt_prefab = get_apartment_building_prefab()
-        apt_y = highway_y + 3 + 4 # На одном уровне с домом мэра
+        apt_y = highway_y + 3 + 4
 
         # Квартира 1
         apt1_x = ch_x - 10
         apply_prefab(self, apt1_x, apt_y, apt_prefab)
-
-        # Дорожка к Квартире 1
         a1_door_x = apt1_x + 6
         for y in range(highway_y + 3, apt_y):
             self.set_tile_by_index(a1_door_x, y, 4, layer="ground")
             self.set_tile_by_index(a1_door_x - 1, y, 4, layer="ground")
 
+        self.building_doors["Многоэтажка 1"] = (a1_door_x * self.TILE_SIZE, apt_y * self.TILE_SIZE + self.TILE_SIZE/2)
+
         # Квартира 2
         apt2_x = ch_x + 6
         apply_prefab(self, apt2_x, apt_y, apt_prefab)
-
-        # Дорожка к Квартире 2
         a2_door_x = apt2_x + 6
         for y in range(highway_y + 3, apt_y):
             self.set_tile_by_index(a2_door_x, y, 4, layer="ground")
             self.set_tile_by_index(a2_door_x - 1, y, 4, layer="ground")
+
+        self.building_doors["Многоэтажка 2"] = (a2_door_x * self.TILE_SIZE, apt_y * self.TILE_SIZE + self.TILE_SIZE/2)
 
         self.update_dirty_chunks()
 

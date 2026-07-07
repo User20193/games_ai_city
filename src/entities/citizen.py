@@ -34,7 +34,14 @@ class Citizen(Entity):
 
         self.age = random.randint(18, 80)
         self.job = "Безработный"
-        self.home = f"Дом {random.randint(1, 2)}, Кв. {random.randint(1, 40)}"
+
+        self.home_building = f"Многоэтажка {random.randint(1, 2)}"
+        self.home_apt = random.randint(1, 40)
+        self.home = f"{self.home_building}, Кв. {self.home_apt}"
+
+        # Системные флаги
+        self.is_visible = True
+        self.time_system = None # Ссылка передается позже при спавне
 
         self.generate_thought()
 
@@ -69,6 +76,34 @@ class Citizen(Entity):
         return False
 
     def update(self, dt):
+        # 1. Проверяем расписание (комендантский час)
+        if self.time_system:
+            t = self.time_system.game_time
+            is_night = (t >= 22.0 or t < 6.0)
+
+            if is_night and self.state not in ["GOING_HOME", "SLEEPING_INSIDE"]:
+                self.state = "GOING_HOME"
+                # Ищем координаты двери дома
+                door_coords = self.world.building_doors.get(self.home_building)
+                if door_coords:
+                    self.target_x, self.target_y = door_coords
+                else:
+                    self.is_visible = False # Если дом не найден, просто исчезаем (фолбэк)
+                    self.state = "SLEEPING_INSIDE"
+
+            elif not is_night and self.state == "SLEEPING_INSIDE":
+                self.state = "IDLE"
+                self.is_visible = True
+                self.state_timer = 2.0
+
+        # Если спит внутри дома, больше ничего не обновляем
+        if self.state == "SLEEPING_INSIDE":
+            self.thought_timer = 0
+            self.thought = ""
+            self.thought_surface = None
+            return
+
+        # 2. Обновление мыслей
         if self.thought_timer > 0:
             self.thought_timer -= dt
             if self.thought_timer <= 0:
@@ -80,6 +115,7 @@ class Citizen(Entity):
             if self.thought_timer >= 0:
                 self.generate_thought()
 
+        # 3. FSM (Машина состояний)
         if self.state == "IDLE":
             self.state_timer -= dt
             if self.state_timer <= 0:
@@ -99,14 +135,18 @@ class Citizen(Entity):
                 self.target_x = max(0, min(self.target_x, max_world_x - self.width))
                 self.target_y = max(0, min(self.target_y, max_world_y - self.height))
 
-        elif self.state == "WANDER":
+        elif self.state == "WANDER" or self.state == "GOING_HOME":
             dx = self.target_x - self.x
             dy = self.target_y - self.y
             dist = math.hypot(dx, dy)
 
             if dist < 1.0:
-                self.state = "IDLE"
-                self.state_timer = random.uniform(1.0, 4.0)
+                if self.state == "GOING_HOME":
+                    self.state = "SLEEPING_INSIDE"
+                    self.is_visible = False
+                else:
+                    self.state = "IDLE"
+                    self.state_timer = random.uniform(1.0, 4.0)
             else:
                 step_x = (dx / dist) * self.speed * dt
                 step_y = (dy / dist) * self.speed * dt
@@ -117,17 +157,23 @@ class Citizen(Entity):
                 if not self._check_collision(self.x, self.y + step_y):
                     self.y += step_y
 
-                if self._check_collision(self.x + step_x, self.y) and self._check_collision(self.x, self.y + step_y):
+                # Застревание (только при гулянии сбрасываем цель)
+                if self.state == "WANDER" and self._check_collision(self.x + step_x, self.y) and self._check_collision(self.x, self.y + step_y):
                     self.state = "IDLE"
                     self.state_timer = random.uniform(0.5, 1.5)
                     self.target_x = self.x
                     self.target_y = self.y
 
     def check_click(self, mouse_world_x, mouse_world_y):
+        if not self.is_visible:
+            return False
         rect = self.get_rect()
         return rect.collidepoint(mouse_world_x, mouse_world_y)
 
     def render(self, surface, camera):
+        if not self.is_visible:
+            return
+
         screen_rect = camera.apply(self.get_rect())
 
         sx = int(screen_rect.x)
@@ -146,7 +192,9 @@ class Citizen(Entity):
         pygame.draw.rect(surface, self.skin_color, (sx + head_offset_x, sy, head_w, head_h))
 
     def render_ui(self, surface, camera):
-        """Отрисовывает облачко мыслей вторым проходом, чтобы они были поверх всех жителей."""
+        if not self.is_visible:
+            return
+
         if self.thought_timer > 0 and self.thought_surface:
             screen_rect = camera.apply(self.get_rect())
             sx = int(screen_rect.x)

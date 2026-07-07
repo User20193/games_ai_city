@@ -50,7 +50,9 @@ class PlayState(State):
         # Мэр
         mx, my = get_safe_spawn_pos(mayor_x, mayor_y, 20)
         mayor = Citizen(mx, my, self.game.language, self.world, self.game.asset_manager)
+        mayor.time_system = self.time_system
         mayor.job = "Мэр"
+        mayor.home_building = "Дом Мэра"
         mayor.home = "Дом Мэра"
         self.entity_manager.add_entity(mayor)
 
@@ -58,6 +60,7 @@ class PlayState(State):
         for _ in range(5):
             cx, cy = get_safe_spawn_pos(mayor_x, mayor_y, 100)
             c = Citizen(cx, cy, self.game.language, self.world, self.game.asset_manager)
+            c.time_system = self.time_system
             self.entity_manager.add_entity(c)
 
         self.last_debug_text = ""
