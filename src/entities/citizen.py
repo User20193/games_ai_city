@@ -142,7 +142,7 @@ class Citizen(Entity):
 
             # Если не кассир, голоден или нет еды и есть деньги
             if self.job != "Кассир" and not is_night and self.state in ["IDLE", "WANDER"]:
-                if (self.hunger < 40.0 or self.food_supplies == 0) and self.money >= 50 and not self.has_groceries:
+                if (self.hunger < 60.0 or self.food_supplies < 3) and self.money >= 50 and not self.has_groceries:
                     self.state = "SHOPPING_GOTO_SHELF"
                     if self.world and self.world.shop_shelves:
                         shelf_pos = random.choice(self.world.shop_shelves)
@@ -267,6 +267,7 @@ class Citizen(Entity):
                     self.world.shop_queue.append(self)
                     self.queue_index = len(self.world.shop_queue) - 1
                     self.state = "IN_QUEUE"
+                    self.path = [] # Сбрасываем путь, чтобы построить новый до очереди
                 else:
                     # Очередь заполнена, уходим расстроенными
                     self.state = "IDLE"
@@ -282,15 +283,32 @@ class Citizen(Entity):
 
             # Идем к своему слоту в очереди
             slot_pos = self.world.shop_queue_slots[self.queue_index]
-            self.target_x = slot_pos[0] - self.width / 2
-            self.target_y = slot_pos[1] - self.height
 
-            reached = self._move_towards_target(dt)
+            # Если мы далеко от своего слота, используем astar
+            dist_to_slot = math.hypot(self.x + self.width/2 - slot_pos[0], self.y + self.height - slot_pos[1])
 
-            if reached and self.queue_index == 0:
-                # Мы на кассе (слот 0)!
-                self.state = "PAYING"
-                self.state_timer = 1.0 # Ждем 1 сек на оплату
+            if dist_to_slot > 10.0 and not self.path:
+                start_pos = (self.x + self.width/2, self.y + self.height)
+                new_path = astar_search(self.world, start_pos, slot_pos)
+                if new_path:
+                    self.path = new_path
+
+            if self.path:
+                self.target_x, self.target_y = self.path[0]
+                self.target_x -= self.width / 2
+                self.target_y -= self.height
+                reached = self._move_towards_target(dt)
+                if reached:
+                    self.path.pop(0)
+            else:
+                self.target_x = slot_pos[0] - self.width / 2
+                self.target_y = slot_pos[1] - self.height
+                reached = self._move_towards_target(dt)
+
+                if reached and self.queue_index == 0:
+                    # Мы на кассе (слот 0)!
+                    self.state = "PAYING"
+                    self.state_timer = 1.0 # Ждем 1 сек на оплату
 
         elif self.state == "PAYING":
             self.state_timer -= dt

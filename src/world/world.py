@@ -223,7 +223,7 @@ class World:
         # Касса на y=20, очередь идет: y=19, 18, 17, 16...
         self.shop_queue_slots = []
         for dy in range(1, 6): # 5 мест в очереди
-            self.shop_queue_slots.append(((shop_x + 4.5) * self.TILE_SIZE, (shop_y + 20 - dy) * self.TILE_SIZE))
+            self.shop_queue_slots.append(((shop_x + 5.5) * self.TILE_SIZE, (shop_y + 20.5 - dy) * self.TILE_SIZE))
 
         # Точки интереса: полки
         # Левые полки (x=2..4, y=3..18). Место для покупателя: справа (x=6)
