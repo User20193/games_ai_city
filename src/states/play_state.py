@@ -32,14 +32,30 @@ class PlayState(State):
 
         mayor_x = world_pixel_width / 2
         mayor_y = world_pixel_height / 2
-        mayor = Citizen(mayor_x, mayor_y, self.game.language, self.world, self.game.asset_manager)
-        mayor.job = "Мэр" # Жестко задаем профессию первому жителю
+
+        # Функция для поиска безопасной позиции (чтобы не застрять в стене)
+        def get_safe_spawn_pos(center_x, center_y, radius):
+            for _ in range(50): # Максимум 50 попыток
+                cx = center_x + random.randint(-radius, radius)
+                cy = center_y + random.randint(-radius, radius)
+                # Проверяем тайл
+                tile_idx = self.world.get_tile_index(cx, cy)
+                if tile_idx is not None:
+                    tile = self.world.tile_registry.get_tile(tile_idx)
+                    # Если не твердый (не стена) и не крыша (roof is solid now)
+                    if tile and not tile.is_solid:
+                        return cx, cy
+            return center_x, center_y # Фолбэк
+
+        # Мэр
+        mx, my = get_safe_spawn_pos(mayor_x, mayor_y, 20)
+        mayor = Citizen(mx, my, self.game.language, self.world, self.game.asset_manager)
+        mayor.job = "Мэр"
         self.entity_manager.add_entity(mayor)
 
-        # Спавним еще парочку жителей для тестов
+        # Тестовые жители
         for _ in range(5):
-            cx = mayor_x + random.randint(-100, 100)
-            cy = mayor_y + random.randint(-100, 100)
+            cx, cy = get_safe_spawn_pos(mayor_x, mayor_y, 100)
             c = Citizen(cx, cy, self.game.language, self.world, self.game.asset_manager)
             self.entity_manager.add_entity(c)
 
@@ -56,14 +72,10 @@ class PlayState(State):
                 elif event.key == pygame.K_r:
                     self.show_roofs = not self.show_roofs
             elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
-                # Обработка клика по жителям
                 mouse_x, mouse_y = pygame.mouse.get_pos()
-
-                # Переводим экранные координаты мыши в мировые
                 world_x, world_y = self.camera.screen_to_world(mouse_x, mouse_y)
 
                 clicked_citizen = None
-                # Проверяем в обратном порядке, чтобы кликать по тому, кто рисуется поверх других (последним)
                 for entity in reversed(self.entity_manager.entities):
                     if isinstance(entity, Citizen) and entity.check_click(world_x, world_y):
                         clicked_citizen = entity
@@ -102,6 +114,5 @@ class PlayState(State):
 
         self.time_system.render_ui(surface)
 
-        # Отрисовка паспорта поверх всего
         if self.selected_citizen:
             self.passport_ui.render(surface, self.selected_citizen, self.game.WINDOW_WIDTH, self.game.WINDOW_HEIGHT)

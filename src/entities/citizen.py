@@ -26,7 +26,6 @@ class Citizen(Entity):
         self.thought_timer = 0
         self.thought_surface = None
 
-        # Данные паспорта
         self.first_name = "Неизвестный"
         self.last_name = "Гражданин"
         if self.language:
@@ -48,6 +47,30 @@ class Citizen(Entity):
                 self.thought_surface = self.asset_manager.render_text(self.thought, font_size, config.COLORS["black"])
             else:
                 self.thought_surface = None
+
+    def _check_collision(self, check_x, check_y):
+        """Возвращает True, если житель столкнется со стеной в переданных координатах."""
+        # Уменьшаем хитбокс по ширине на 2 пикселя с каждой стороны,
+        # чтобы они могли спокойно проходить в двери (ширина двери 16px)
+        margin_x = 2
+        # Хитбокс по Y - это только самый низ ног (последние 4 пикселя)
+        foot_height = 4
+
+        # 4 точки: Левый-верх ног, Правый-верх ног, Левый-низ, Правый-низ
+        points = [
+            (check_x + margin_x, check_y + self.height - foot_height),
+            (check_x + self.width - margin_x, check_y + self.height - foot_height),
+            (check_x + margin_x, check_y + self.height - 1),
+            (check_x + self.width - margin_x, check_y + self.height - 1)
+        ]
+
+        for px, py in points:
+            tile_idx = self.world.get_tile_index(px, py)
+            if tile_idx is not None:
+                tile = self.world.tile_registry.get_tile(tile_idx)
+                if tile and tile.is_solid:
+                    return True
+        return False
 
     def update(self, dt):
         if self.thought_timer > 0:
@@ -92,36 +115,21 @@ class Citizen(Entity):
                 step_x = (dx / dist) * self.speed * dt
                 step_y = (dy / dist) * self.speed * dt
 
-                future_x = self.x + step_x
-                future_y = self.y + step_y
+                # Двигаем по X
+                if not self._check_collision(self.x + step_x, self.y):
+                    self.x += step_x
 
-                # Проверяем хитбокс (квадрат в области ног жителя, где он "стоит" на земле).
-                # Проверяем все 4 угла этого хитбокса, чтобы он точно не мог пройти сквозь стену.
-                hitbox_margin = 1 # Отступ от краев, чтобы не цепляться за соседние тайлы
-                check_points = [
-                    (future_x + hitbox_margin, future_y + self.height - hitbox_margin),                      # Левый низ
-                    (future_x + self.width - hitbox_margin, future_y + self.height - hitbox_margin),         # Правый низ
-                    (future_x + hitbox_margin, future_y + self.height - self.width / 2),                     # Левый верх ног
-                    (future_x + self.width - hitbox_margin, future_y + self.height - self.width / 2),        # Правый верх ног
-                ]
+                # Двигаем по Y независимо от X (позволяет скользить вдоль стен)
+                if not self._check_collision(self.x, self.y + step_y):
+                    self.y += step_y
 
-                collision = False
-                for cx, cy in check_points:
-                    tile_idx = self.world.get_tile_index(cx, cy)
-                    if tile_idx is not None:
-                        tile = self.world.tile_registry.get_tile(tile_idx)
-                        if tile and tile.is_solid:
-                            collision = True
-                            break
-
-                if collision:
+                # Если мы застряли и не можем двигаться ни по X, ни по Y,
+                # нужно сбросить цель, чтобы выбрать новый путь.
+                if self._check_collision(self.x + step_x, self.y) and self._check_collision(self.x, self.y + step_y):
                     self.state = "IDLE"
-                    self.state_timer = random.uniform(1.0, 2.0)
+                    self.state_timer = random.uniform(0.5, 1.5)
                     self.target_x = self.x
                     self.target_y = self.y
-                else:
-                    self.x = future_x
-                    self.y = future_y
 
     def check_click(self, mouse_world_x, mouse_world_y):
         rect = self.get_rect()
