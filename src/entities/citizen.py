@@ -310,11 +310,21 @@ class Citizen(Entity):
                             self.target_x -= self.width / 2
                             self.target_y -= self.height
                 else:
-                    self.state = "WANDER"
-                    angle = random.uniform(0, math.pi * 2)
-                    distance = random.uniform(10, 50)
-                    self.target_x = self.x + math.cos(angle) * distance
-                    self.target_y = self.y + math.sin(angle) * distance
+                    if random.random() < 0.4 and self.world and hasattr(self.world, 'park_benches') and self.world.park_benches:
+                        self.state = "GOING_TO_PARK"
+                        bench_pos = random.choice(self.world.park_benches)
+                        start_pos = (self.x + self.width/2, self.y + self.height)
+                        self.path = astar_search(self.world, start_pos, bench_pos)
+                        if self.path:
+                            self.target_x, self.target_y = self.path.pop(0)
+                            self.target_x -= self.width / 2
+                            self.target_y -= self.height
+                    else:
+                        self.state = "WANDER"
+                        angle = random.uniform(0, math.pi * 2)
+                        distance = random.uniform(10, 50)
+                        self.target_x = self.x + math.cos(angle) * distance
+                        self.target_y = self.y + math.sin(angle) * distance
 
                     if self.world:
                         max_world_x = self.world.WORLD_WIDTH * self.world.CHUNK_SIZE * self.world.TILE_SIZE
@@ -332,7 +342,13 @@ class Citizen(Entity):
                 self.state = "IDLE"
                 self.state_timer = random.uniform(1.0, 4.0)
 
-        elif self.state in ["GOING_HOME", "WORKING", "SHOPPING_GOTO_SHELF"]:
+        elif self.state == "SITTING_IN_PARK":
+            self.state_timer -= dt
+            if self.state_timer <= 0:
+                self.state = "IDLE"
+                self.state_timer = 1.0
+
+        elif self.state in ["GOING_HOME", "WORKING", "SHOPPING_GOTO_SHELF", "GOING_TO_PARK"]:
             reached = self._move_towards_target(dt)
             if reached:
                 if self.path:
@@ -357,6 +373,9 @@ class Citizen(Entity):
                     elif self.state == "SHOPPING_GOTO_SHELF":
                         self.state = "SHOPPING_WAITING_SHELF"
                         self.state_timer = 1.0 # Берет товар с полки
+                    elif self.state == "GOING_TO_PARK":
+                        self.state = "SITTING_IN_PARK"
+                        self.state_timer = random.uniform(15.0, 30.0) # Сидит на скамейке 15-30 секунд
 
         elif self.state == "SHOPPING_WAITING_SHELF":
             self.state_timer -= dt

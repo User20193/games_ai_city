@@ -86,6 +86,7 @@ class TimeSystem:
         self.current_y += (target_y - self.current_y) * 10 * dt
 
     def render_day_night_cycle(self, surface, camera=None):
+        import pygame
         alpha = 0
         t = self.game_time
 
@@ -99,9 +100,37 @@ class TimeSystem:
             alpha = int(220 * progress)
 
         if alpha > 0:
+            # Создаем полностью черный экран с альфой
             dark_surface = pygame.Surface((self.game.WINDOW_WIDTH, self.game.WINDOW_HEIGHT), pygame.SRCALPHA)
             base_r, base_g, base_b = config.COLORS["night_filter"]
             dark_surface.fill((base_r, base_g, base_b, alpha))
+
+            if camera and getattr(self, 'lights', None):
+                for lx, ly, radius, color in self.lights:
+                    # Позиция света на экране
+                    light_rect = pygame.Rect(lx, ly, 1, 1)
+                    screen_rect = camera.apply(light_rect)
+                    sx, sy = screen_rect.center
+
+                    if -radius < sx < surface.get_width() + radius and -radius < sy < surface.get_height() + radius:
+                        # Рисуем градиентную дырку
+                        steps = 6
+                        for i in range(steps):
+                            r = int(radius * camera.zoom * (1.0 - i/steps))
+                            if r <= 0: continue
+                            glow = pygame.Surface((r*2, r*2), pygame.SRCALPHA)
+                            # Вырезаем альфу: используем специальный флаг BLEND_RGBA_SUB
+                            # Чем светлее цвет вырезаемого круга, тем больше прозрачности он добавит в dark_surface
+                            intensity = int(255 / steps)
+                            pygame.draw.circle(glow, (0, 0, 0, intensity), (r, r), r)
+                            dark_surface.blit(glow, (sx - r, sy - r), special_flags=pygame.BLEND_RGBA_SUB)
+
+                        # Сверху добавляем мягкий цвет света (желтоватый)
+                        r = int(radius * camera.zoom)
+                        color_surf = pygame.Surface((r*2, r*2), pygame.SRCALPHA)
+                        pygame.draw.circle(color_surf, color, (r, r), r)
+                        dark_surface.blit(color_surf, (sx - r, sy - r), special_flags=pygame.BLEND_RGBA_ADD)
+
             surface.blit(dark_surface, (0, 0))
 
     def check_tab_click(self, mouse_pos):
