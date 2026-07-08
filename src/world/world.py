@@ -30,7 +30,13 @@ class World:
         self.building_doors = {}
 
         self.shop_cashier_pos = None
-        self.shop_shelves = []
+        self.shop_departments = {
+            "Крупы и бакалея": [],
+            "Овощи": [],
+            "Молочные продукты": [],
+            "Фрукты": [],
+            "Мясо и рыба": []
+        }
 
         # Очередь покупателей (каждый элемент - ссылка на объект Citizen)
         self.shop_queue = []
@@ -225,14 +231,18 @@ class World:
         for dy in range(1, 6): # 5 мест в очереди
             self.shop_queue_slots.append(((shop_x + 5.5) * self.TILE_SIZE, (shop_y + 20.5 - dy) * self.TILE_SIZE))
 
-        # Точки интереса: полки
+        # Точки интереса: отделы
         # Левые полки (x=2..4, y=3..18). Место для покупателя: справа (x=6)
-        self.shop_shelves.append(((shop_x + 6.5) * self.TILE_SIZE, (shop_y + 6.5) * self.TILE_SIZE))
-        self.shop_shelves.append(((shop_x + 6.5) * self.TILE_SIZE, (shop_y + 14.5) * self.TILE_SIZE))
+        self.shop_departments["Крупы и бакалея"].append(((shop_x + 6.5) * self.TILE_SIZE, (shop_y + 6.5) * self.TILE_SIZE))
+        self.shop_departments["Овощи"].append(((shop_x + 6.5) * self.TILE_SIZE, (shop_y + 14.5) * self.TILE_SIZE))
 
         # Правые полки (x=11..13, y=3..18). Покупатель: слева (x=9)
-        self.shop_shelves.append(((shop_x + 9.5) * self.TILE_SIZE, (shop_y + 6.5) * self.TILE_SIZE))
-        self.shop_shelves.append(((shop_x + 9.5) * self.TILE_SIZE, (shop_y + 14.5) * self.TILE_SIZE))
+        self.shop_departments["Молочные продукты"].append(((shop_x + 9.5) * self.TILE_SIZE, (shop_y + 6.5) * self.TILE_SIZE))
+        self.shop_departments["Фрукты"].append(((shop_x + 9.5) * self.TILE_SIZE, (shop_y + 14.5) * self.TILE_SIZE))
+
+        # Центральные островки
+        self.shop_departments["Мясо и рыба"].append(((shop_x + 8.0) * self.TILE_SIZE, (shop_y + 4.0) * self.TILE_SIZE))
+        self.shop_departments["Мясо и рыба"].append(((shop_x + 8.0) * self.TILE_SIZE, (shop_y + 17.0) * self.TILE_SIZE))
 
         self.update_dirty_chunks()
 

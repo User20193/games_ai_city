@@ -50,6 +50,9 @@ class Citizen(Entity):
         self.food_supplies = random.randint(0, 5)
 
         self.has_groceries = False # Пакет с едой в руках
+        self.shopping_cart = []
+        self.shopping_list = []
+        self.shopping_budget = 0
         self.queue_index = -1 # Позиция в очереди
 
         self.generate_thought()
@@ -142,16 +145,33 @@ class Citizen(Entity):
 
             # Если не кассир, голоден или нет еды и есть деньги
             if self.job != "Кассир" and not is_night and self.state in ["IDLE", "WANDER"]:
-                if (self.hunger < 60.0 or self.food_supplies < 3) and self.money >= 50 and not self.has_groceries:
+                if (self.hunger < 40.0 or self.food_supplies == 0) and self.money >= 15 and not self.has_groceries:
                     self.state = "SHOPPING_GOTO_SHELF"
-                    if self.world and self.world.shop_shelves:
-                        shelf_pos = random.choice(self.world.shop_shelves)
-                        start_pos = (self.x + self.width/2, self.y + self.height)
-                        self.path = astar_search(self.world, start_pos, shelf_pos)
-                        if self.path:
-                            self.target_x, self.target_y = self.path.pop(0)
-                            self.target_x -= self.width / 2
-                            self.target_y -= self.height
+
+                    # Генерируем список покупок
+                    self.shopping_list = []
+                    self.shopping_cart = []
+                    self.shopping_budget = self.money
+
+                    if self.market_system and hasattr(self.market_system, 'catalog'):
+                        # Если совсем нет запасов, берем несколько товаров, если голод - берем 1-2 чтобы поесть
+                        items_to_buy = random.randint(3, 5) if self.food_supplies == 0 else random.randint(1, 2)
+
+                        all_items = []
+                        for dept, items in self.market_system.catalog.items():
+                            for item_name in items.keys():
+                                all_items.append((dept, item_name))
+
+                        random.shuffle(all_items)
+                        for dept, item_name in all_items:
+                            price = self.market_system.get_item_price(item_name)
+                            if self.shopping_budget >= price:
+                                self.shopping_list.append({"dept": dept, "name": item_name})
+                                self.shopping_budget -= price
+                            if len(self.shopping_list) >= items_to_buy:
+                                break
+
+                    self._goto_next_shelf()
 
             if is_night and self.state not in ["GOING_HOME", "SLEEPING_INSIDE"]:
                 # Если наступила ночь, а мы были в очереди - выходим
@@ -247,7 +267,9 @@ class Citizen(Entity):
                         if self.has_groceries:
                             # Дошли домой с едой!
                             self.has_groceries = False
-                            self.food_supplies += 3
+                            # За каждую вещь в корзине получаем +1 к запасам (и очищаем корзину)
+                            self.food_supplies += len(self.shopping_cart)
+                            self.shopping_cart.clear()
                             self.hunger = 100.0 # Немного перекусили сразу
                             self.state = "IDLE" # Идем гулять снова (если день)
                         else:
@@ -256,8 +278,22 @@ class Citizen(Entity):
                     elif self.state == "WORKING":
                         pass
                     elif self.state == "SHOPPING_GOTO_SHELF":
-                        self.state = "SHOPPING_PICKING"
-                        self.state_timer = 2.0
+                        self.state = "SHOPPING_WAITING_SHELF"
+                        self.state_timer = 1.0 # Берет товар с полки
+
+        elif self.state == "SHOPPING_WAITING_SHELF":
+            self.state_timer -= dt
+            if self.state_timer <= 0:
+                if self.shopping_list:
+                    item = self.shopping_list.pop(0)
+                    self.shopping_cart.append(item["name"])
+
+                if self.shopping_list:
+                    self.state = "SHOPPING_GOTO_SHELF"
+                    self._goto_next_shelf()
+                else:
+                    self.state = "SHOPPING_PICKING"
+                    self.state_timer = 0
 
         elif self.state == "SHOPPING_PICKING":
             self.state_timer -= dt
@@ -270,6 +306,7 @@ class Citizen(Entity):
                     self.path = [] # Сбрасываем путь, чтобы построить новый до очереди
                 else:
                     # Очередь заполнена, уходим расстроенными
+                    self.shopping_cart.clear() # Бросаем корзину
                     self.state = "IDLE"
 
         elif self.state == "IN_QUEUE":
@@ -313,17 +350,48 @@ class Citizen(Entity):
         elif self.state == "PAYING":
             self.state_timer -= dt
             if self.state_timer <= 0:
-                if self.market_system:
-                    price = self.market_system.buy_goods()
+                if self.market_system and self.shopping_cart:
+                    price = self.market_system.buy_cart(self.shopping_cart)
                     if self.money >= price:
                         self.money -= price
                         self.has_groceries = True # Теперь несем пакет домой!
+                    else:
+                        self.shopping_cart.clear() # Не хватило денег (хотя алгоритм считал, но цены могли вырасти)
 
                 # Выходим из очереди
                 if self in self.world.shop_queue:
                     self.world.shop_queue.remove(self)
                 self.queue_index = -1
                 self.state = "IDLE" # Перейдет в GOING_HOME автоматически
+
+
+    def _goto_next_shelf(self):
+        if not self.shopping_list:
+            # Корзина собрана, идем на кассу (В очередь)
+            self.state = "SHOPPING_PICKING"
+            self.state_timer = 0
+            return
+
+        next_item = self.shopping_list[0]
+        dept = next_item["dept"]
+
+        if self.world and hasattr(self.world, 'shop_departments'):
+            dept_coords = self.world.shop_departments.get(dept)
+            if dept_coords:
+                shelf_pos = random.choice(dept_coords)
+                start_pos = (self.x + self.width/2, self.y + self.height)
+                self.path = astar_search(self.world, start_pos, shelf_pos)
+                if self.path:
+                    self.target_x, self.target_y = self.path.pop(0)
+                    self.target_x -= self.width / 2
+                    self.target_y -= self.height
+                else:
+                    # Если путь не найден, просто скипаем предмет
+                    self.shopping_list.pop(0)
+                    self._goto_next_shelf()
+            else:
+                self.shopping_list.pop(0)
+                self._goto_next_shelf()
 
     def check_click(self, mouse_world_x, mouse_world_y):
         if not self.is_visible:

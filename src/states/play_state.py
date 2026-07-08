@@ -36,18 +36,16 @@ class PlayState(State):
         mayor_y = world_pixel_height / 2
 
         def get_safe_spawn_pos(center_x, center_y, radius):
-            for _ in range(50):
+            for _ in range(200):
                 cx = center_x + random.randint(-radius, radius)
                 cy = center_y + random.randint(-radius, radius)
                 tile_idx = self.world.get_tile_index(cx, cy)
-                if tile_idx is not None:
-                    tile = self.world.tile_registry.get_tile(tile_idx)
-                    if tile and not tile.is_solid:
-                        return cx, cy
+                if tile_idx in [12, 13]: # Спавним только на дороге, чтобы точно избежать застреваний в стенах
+                    return cx, cy
             return center_x, center_y
 
         # Мэр
-        mx, my = get_safe_spawn_pos(mayor_x, mayor_y, 20)
+        mx, my = get_safe_spawn_pos(mayor_x, mayor_y, 100)
         mayor = Citizen(mx, my, self.game.language, self.world, self.game.asset_manager)
         mayor.time_system = self.time_system
         mayor.market_system = self.market_system
