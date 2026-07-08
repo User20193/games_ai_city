@@ -16,7 +16,7 @@ class EntityManager:
     def render(self, surface, camera):
         # Y-сортировка: первыми рисуются сущности, которые выше (y меньше)
         # Таким образом те, кто ниже, будут перекрывать тех, кто выше, создавая иллюзию глубины (2.5D)
-        self.entities.sort(key=lambda e: e.y)
+        self.entities.sort(key=lambda e: e.y + e.height)
 
         # Сначала рисуем тела всех сущностей
         for entity in self.entities:

@@ -114,7 +114,7 @@ class Citizen(Entity):
         if self.hunger < 0: self.hunger = 0.0
         if self.hunger > 100.0: self.hunger = 100.0
 
-        if self.state == "SLEEPING_INSIDE" and self.hunger < 80.0 and self.food_supplies > 0:
+        if self.hunger < 40.0 and self.food_supplies > 0:
             self.food_supplies -= 1
             self.hunger = 100.0
 
