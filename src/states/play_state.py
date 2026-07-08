@@ -15,7 +15,6 @@ class PlayState(State):
         super().__init__(game)
 
         self.world = World(self.game.WINDOW_WIDTH, self.game.WINDOW_HEIGHT)
-        self.time_system.lights = self.world.lights
         self.camera = Camera(self.game.WINDOW_WIDTH, self.game.WINDOW_HEIGHT)
 
         world_pixel_width = self.world.WORLD_WIDTH * self.world.CHUNK_SIZE * self.world.TILE_SIZE
@@ -27,6 +26,7 @@ class PlayState(State):
         self.show_roofs = True
 
         self.time_system = TimeSystem(self.game)
+        self.time_system.lights = self.world.lights
         self.market_system = MarketSystem()
         self.entity_manager = EntityManager()
 

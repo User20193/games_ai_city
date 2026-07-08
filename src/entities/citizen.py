@@ -22,6 +22,7 @@ class Citizen(Entity):
         self.target_x = self.x
         self.target_y = self.y
         self.speed = 15
+        self.walk_timer = random.uniform(0, 10.0)
 
         self.thought = ""
         self.thought_timer = 0

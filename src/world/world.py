@@ -99,7 +99,21 @@ class World:
                 if color_idx is not None:
                     tile = self.tile_registry.get_tile(color_idx)
                     rect = pygame.Rect(tx * self.TILE_SIZE, ty * self.TILE_SIZE, self.TILE_SIZE, self.TILE_SIZE)
-                    pygame.draw.rect(surf_ground, tile.color, rect)
+
+                    drawn = False
+                    if hasattr(tile, 'texture_name') and tile.texture_name:
+                        try:
+                            from src.systems.asset_manager import AssetManager
+                            am = AssetManager()
+                            tex = am.get_tile_texture(tile.texture_name)
+                            if tex:
+                                surf_ground.blit(tex, rect)
+                                drawn = True
+                        except Exception as e:
+                            pass
+
+                    if not drawn:
+                        pygame.draw.rect(surf_ground, tile.color, rect)
 
         if key not in self.chunk_surfaces_roof:
             self.chunk_surfaces_roof[key] = pygame.Surface((pixel_size, pixel_size), pygame.SRCALPHA)
@@ -335,7 +349,21 @@ class World:
         screen_x = (visible_rect.x - offset_x) * camera.zoom
         screen_y = (visible_rect.y - offset_y) * camera.zoom
 
-        surface.blit(scaled_surf, (screen_x, screen_y))
+        if is_roof:
+            # 2.5D Фасады
+            wall_surf = scaled_surf.copy()
+            wall_surf.fill((100, 100, 100), special_flags=pygame.BLEND_RGB_MULT)
+
+            # Рисуем несколько слоев вниз для имитации 3D стены
+            for i in reversed(range(1, 40, 2)):
+                wall_y = screen_y - int(i * camera.zoom)
+                surface.blit(wall_surf, (screen_x, wall_y))
+
+            # Рисуем саму крышу сверху
+            roof_y = screen_y - int(40 * camera.zoom)
+            surface.blit(scaled_surf, (screen_x, roof_y))
+        else:
+            surface.blit(scaled_surf, (screen_x, screen_y))
 
     def render_ground(self, surface, camera):
         self._render_layer(surface, camera, self.chunk_surfaces_ground)

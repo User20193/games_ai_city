@@ -85,18 +85,18 @@ class TimeSystem:
         # Плавное движение
         self.current_y += (target_y - self.current_y) * 10 * dt
 
-    def render_day_night_cycle(self, surface):
+    def render_day_night_cycle(self, surface, camera=None):
         alpha = 0
         t = self.game_time
 
         if t < 5.0 or t >= 20.0:
-            alpha = 180 # Ночь
+            alpha = 220 # Ночь
         elif 5.0 <= t < 7.0:
             progress = (t - 5.0) / 2.0
-            alpha = int(180 * (1.0 - progress))
+            alpha = int(220 * (1.0 - progress))
         elif 18.0 <= t < 20.0:
             progress = (t - 18.0) / 2.0
-            alpha = int(180 * progress)
+            alpha = int(220 * progress)
 
         if alpha > 0:
             dark_surface = pygame.Surface((self.game.WINDOW_WIDTH, self.game.WINDOW_HEIGHT), pygame.SRCALPHA)
