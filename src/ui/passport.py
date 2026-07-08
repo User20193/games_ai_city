@@ -26,23 +26,67 @@ class PassportUI:
         self.needs_height = 120
         self.current_needs_y = 0.0
 
+        # Состояние вкладки Биография
+        self.is_bio_open = False
+        self.bio_width = 300
+        self.current_bio_x = 0.0
+
     def check_tab_click(self, mouse_pos, screen_width, screen_height):
         x = screen_width - self.width - 20
         y = (screen_height - self.height) // 2
 
+        # Клик по нижней вкладке (Потребности)
         tab_w = 60
         tab_h = 15
         tab_y = y + self.height + int(self.current_needs_y)
         tab_rect = pygame.Rect(x + (self.width - tab_w)//2, tab_y, tab_w, tab_h)
 
+        # Клик по боковой вкладке (Биография)
+        bio_tab_w = 20
+        bio_tab_h = 80
+        bio_tab_x = x - bio_tab_w - int(self.current_bio_x)
+        bio_tab_y = y + 50
+        bio_tab_rect = pygame.Rect(bio_tab_x, bio_tab_y, bio_tab_w, bio_tab_h)
+
         if tab_rect.collidepoint(mouse_pos):
             self.is_needs_open = not self.is_needs_open
+            return True
+        elif bio_tab_rect.collidepoint(mouse_pos):
+            self.is_bio_open = not self.is_bio_open
             return True
         return False
 
     def update(self, dt):
         target_y = self.needs_height if self.is_needs_open else 0.0
         self.current_needs_y += (target_y - self.current_needs_y) * 15 * dt
+
+        target_x = self.bio_width if self.is_bio_open else 0.0
+        self.current_bio_x += (target_x - self.current_bio_x) * 15 * dt
+
+    def _draw_text_wrapped(self, surface, text, font_size, color, rect):
+        words = text.split(' ')
+        lines = []
+        current_line = []
+
+        # Хакаем, т.к. AssetManager возвращает готовый Surface, а не Font
+        # Получим сам объект Font из AssetManager для расчетов ширины
+        font = self.asset_manager.get_font(font_size)
+
+        for word in words:
+            current_line.append(word)
+            fw, fh = font.size(' '.join(current_line))
+            if fw > rect.width:
+                current_line.pop()
+                lines.append(' '.join(current_line))
+                current_line = [word]
+        lines.append(' '.join(current_line))
+
+        y = rect.top
+        for line in lines:
+            if not line: continue
+            line_surf = self.asset_manager.render_text(line, font_size, color)
+            surface.blit(line_surf, (rect.left, y))
+            y += font.size(line)[1] + 4
 
     def render(self, surface, citizen, screen_width, screen_height):
         if not citizen:
@@ -98,6 +142,38 @@ class PassportUI:
                 if fill_w > 0:
                     pygame.draw.rect(surface, bar_color, (bar_x, bar_y, fill_w, bar_h), border_radius=4)
                 pygame.draw.rect(surface, self.border_color, (bar_x, bar_y, bar_w, bar_h), width=1, border_radius=4)
+
+                # --- Выдвижная боковая панель (Биография) ---
+        if self.current_bio_x > 1:
+            bio_rect = pygame.Rect(x - int(self.current_bio_x), y + 20, int(self.current_bio_x) + 10, self.height - 40)
+            pygame.draw.rect(surface, (40, 45, 55, 240), bio_rect, border_top_left_radius=12, border_bottom_left_radius=12)
+            pygame.draw.rect(surface, self.border_color, bio_rect, width=2, border_top_left_radius=12, border_bottom_left_radius=12)
+
+            if self.current_bio_x > 50:
+                bio_title = self.asset_manager.render_text("БИОГРАФИЯ", self.title_size, self.border_color)
+                surface.blit(bio_title, (x - int(self.current_bio_x) + 15, y + 35))
+
+                pygame.draw.line(surface, self.border_color,
+                         (x - int(self.current_bio_x) + 15, y + 65),
+                         (x - 15, y + 65), 2)
+
+                bio_text = getattr(citizen, 'biography', "Нет данных о прошлом...")
+                text_rect = pygame.Rect(x - int(self.current_bio_x) + 15, y + 80, self.bio_width - 30, self.height - 100)
+
+                self._draw_text_wrapped(surface, bio_text, self.small_size, self.text_color, text_rect)
+
+        # --- Боковой язычок (Биография) ---
+        bio_tab_w = 20
+        bio_tab_h = 80
+        bio_tab_x = x - bio_tab_w - int(self.current_bio_x) + 2
+        bio_tab_y = y + 50
+        bio_tab_rect = pygame.Rect(bio_tab_x, bio_tab_y, bio_tab_w, bio_tab_h)
+        pygame.draw.rect(surface, self.bg_color, bio_tab_rect, border_top_left_radius=6, border_bottom_left_radius=6)
+        pygame.draw.rect(surface, self.border_color, bio_tab_rect, width=2, border_top_left_radius=6, border_bottom_left_radius=6)
+
+        # Иконка книжки на язычке (или просто текст)
+        b_text = self.asset_manager.render_text("B", 14, self.border_color)
+        surface.blit(b_text, (bio_tab_x + 5, bio_tab_y + 30))
 
         # --- Основная панель паспорта ---
         bg_rect = pygame.Rect(x, y, self.width, self.height)
