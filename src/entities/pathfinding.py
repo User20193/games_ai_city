@@ -64,6 +64,26 @@ def astar_search(world, start_world_pos, target_world_pos):
                 path.append((world_x, world_y))
                 current = came_from[current]
             path.reverse()
+
+            # Сглаживание пути (убираем лишние точки на прямой линии)
+            if len(path) > 2:
+                smoothed_path = [path[0]]
+                for i in range(1, len(path) - 1):
+                    # Проверяем, лежат ли три точки на одной линии
+                    prev_pt = smoothed_path[-1]
+                    curr_pt = path[i]
+                    next_pt = path[i+1]
+
+                    dx1, dy1 = curr_pt[0] - prev_pt[0], curr_pt[1] - prev_pt[1]
+                    dx2, dy2 = next_pt[0] - curr_pt[0], next_pt[1] - curr_pt[1]
+
+                    # Если направление меняется, оставляем точку
+                    if (dx1 * dy2) != (dx2 * dy1):
+                        smoothed_path.append(curr_pt)
+
+                smoothed_path.append(path[-1])
+                path = smoothed_path
+
             # Последняя точка должна быть точной (координаты двери, а не просто центр тайла)
             path[-1] = target_world_pos
             return path
