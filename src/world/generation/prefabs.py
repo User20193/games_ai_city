@@ -136,17 +136,44 @@ def get_supermarket_prefab():
     p.set_tile(door_x, door_y, None, "roof")
     p.set_tile(door_x - 1, door_y, None, "roof")
 
-    # Интерьер: Полки по бокам (как в библиотеке)
-    # Левый ряд
-    p.fill_rect(2, 3, 3, 16, 15, "ground")
-    # Правый ряд
-    p.fill_rect(11, 3, 3, 16, 15, "ground")
+    # Функция для удобной отрисовки 2x2 стенда
+    def draw_2x2_shelf(px, py, base_id):
+        p.set_tile(px, py, base_id, "ground")
+        p.set_tile(px + 1, py, base_id + 1, "ground")
+        p.set_tile(px, py + 1, base_id + 2, "ground")
+        p.set_tile(px + 1, py + 1, base_id + 3, "ground")
 
-    # Центральный ряд островков
-    p.fill_rect(7, 5, 2, 4, 15, "ground")
-    p.fill_rect(7, 12, 2, 4, 15, "ground")
+    # Левый ряд: Крупы и Бакалея (ID 29-32)
+    # Размещаем 2 стенда по вертикали
+    draw_2x2_shelf(2, 6, 29)
+    draw_2x2_shelf(2, 14, 29)
+
+    # Правый ряд: Фрукты (21-24) и Овощи (тоже 21-24 для зеленого цвета)
+    draw_2x2_shelf(12, 6, 21)
+    draw_2x2_shelf(12, 14, 21)
+
+    # Центральные островки
+    # Верхний: Мясо и Рыба (17-20)
+    draw_2x2_shelf(7, 4, 17)
+    # Нижний: Молочные продукты (25-28)
+    draw_2x2_shelf(7, 16, 25)
 
     # Касса (ближе ко входу, слева от двери)
     p.fill_rect(3, 20, 3, 1, 16, "ground")
+
+    return p
+
+def get_bus_stop_prefab():
+    p = Prefab("BusStop", 4, 3)
+
+    # Асфальт
+    p.fill_rect(0, 0, 4, 3, 4, "ground")
+
+    # Скамейка (используем стулья)
+    p.set_tile(1, 1, 11, "ground")
+    p.set_tile(2, 1, 11, "ground")
+
+    # Крыша над остановкой
+    p.fill_rect(0, 0, 4, 2, 6, "roof")
 
     return p

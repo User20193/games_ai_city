@@ -1,7 +1,8 @@
 import pygame
 import random
 from src.world.registry.tiles import TileRegistry
-from src.world.generation.prefabs import get_city_hall_prefab, get_mayor_house_prefab, get_apartment_building_prefab, get_supermarket_prefab, apply_prefab
+from src.systems.asset_manager import AssetManager
+from src.world.generation.prefabs import get_city_hall_prefab, get_mayor_house_prefab, get_apartment_building_prefab, get_supermarket_prefab, get_bus_stop_prefab, apply_prefab
 from src.core import config
 
 class World:
@@ -164,6 +165,8 @@ class World:
         ch_y = highway_y - 2 - city_hall.height - 4
         apply_prefab(self, ch_x, ch_y, city_hall)
 
+        self.city_hall_desk_pos = ((ch_x + 7.5) * self.TILE_SIZE, (ch_y + 3.5) * self.TILE_SIZE)
+
         for y in range(ch_y + city_hall.height, highway_y - 2):
             self.set_tile_by_index(center_tx, y, 4, layer="ground")
             self.set_tile_by_index(center_tx - 1, y, 4, layer="ground")
@@ -243,6 +246,13 @@ class World:
         # Центральные островки
         self.shop_departments["Мясо и рыба"].append(((shop_x + 8.0) * self.TILE_SIZE, (shop_y + 4.0) * self.TILE_SIZE))
         self.shop_departments["Мясо и рыба"].append(((shop_x + 8.0) * self.TILE_SIZE, (shop_y + 17.0) * self.TILE_SIZE))
+
+
+        # === 6. АВТОБУСНАЯ ОСТАНОВКА ===
+        bus_stop = get_bus_stop_prefab()
+        bs_x = center_tx + 3
+        bs_y = highway_y - 2 - bus_stop.height
+        apply_prefab(self, bs_x, bs_y, bus_stop)
 
         self.update_dirty_chunks()
 
