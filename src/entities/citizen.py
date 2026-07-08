@@ -27,24 +27,27 @@ class Citizen(Entity):
         self.thought_timer = 0
         self.thought_surface = None
 
-        self.first_name = "Неизвестный"
-        self.last_name = "Гражданин"
+        self.gender = random.choice(["male", "female"])
+        self.first_name = "Неизвестный" if self.gender == "male" else "Неизвестная"
+        self.last_name = "Гражданин" if self.gender == "male" else "Гражданка"
         self.biography = ""
+
         if self.language:
-            self.first_name = self.language.get_word("first_names")
+            if self.gender == "male":
+                self.first_name = self.language.get_word("first_names_male")
+            else:
+                self.first_name = self.language.get_word("first_names_female")
+
             self.last_name = self.language.get_word("last_names")
+            if self.gender == "female" and self.last_name.endswith("ов"):
+                self.last_name += "а"
+            elif self.gender == "female" and self.last_name.endswith("ев"):
+                self.last_name += "а"
+            elif self.gender == "female" and self.last_name.endswith("ин"):
+                self.last_name += "а"
 
-            # Генерация биографии (сшиваем слои)
-            l1 = self.language.get_word("bio_birthplace")
-            l2 = self.language.get_word("bio_childhood")
-            l3 = self.language.get_word("bio_education")
-            l4 = self.language.get_word("bio_first_job")
-            l5 = self.language.get_word("bio_turning_point")
-            l6 = self.language.get_word("bio_relationships")
-            l7 = self.language.get_word("bio_trait")
-            l8 = self.language.get_word("bio_current")
-
-            self.biography = f"Родом оттуда, где находится {l1.lower()}. В юности {l2.lower()}. {l3}. {l4}, {l5}. {l6}. {l7}. {l8}"
+            # Генерация биографии будет вызвана отдельным методом ниже
+            self.generate_biography()
 
         self.age = random.randint(18, 80)
         self.job = "Безработный"
@@ -69,6 +72,54 @@ class Citizen(Entity):
         self.queue_index = -1 # Позиция в очереди
 
         self.generate_thought()
+
+    def generate_biography(self):
+        if not self.language:
+            self.biography = "Нет данных."
+            return
+
+        def process_gender(text):
+            # Заменяет [M:мужской|F:женский] в зависимости от self.gender
+            import re
+            def repl(match):
+                m_word = match.group(1)
+                f_word = match.group(2)
+                return m_word if self.gender == "male" else f_word
+
+            return re.sub(r'\[M:(.*?)\|F:(.*?)\]', repl, text, flags=re.IGNORECASE)
+
+        l_birth = self.language.get_word("bio_birthplace")
+        l_child = self.language.get_word("bio_childhood")
+        l_edu = self.language.get_word("bio_education")
+        l_job = self.language.get_word("bio_first_job")
+        l_turn = self.language.get_word("bio_turning_point")
+        l_rel = self.language.get_word("bio_relationships")
+        l_trait = self.language.get_word("bio_trait")
+        l_cur = self.language.get_word("bio_current")
+
+        # Разные структуры рассказа для разнообразия
+        import random
+        templates = [
+            f"Родом оттуда, где находится {l_birth.lower()}. В юности {l_child.lower()}. {l_edu}. {l_job}, {l_turn}. {l_rel}. {l_trait}. {l_cur}",
+
+            f"Место рождения — {l_birth.lower()}. Известно, что этот человек {l_child.lower()}, а затем {l_edu.lower()}. Жизнь складывалась так, что {l_job.lower()}, {l_turn}. {l_rel}. {l_trait}. {l_cur}",
+
+            f"Прошлое довольно насыщенное: {l_birth.lower()}, где персонаж {l_child.lower()}. {l_edu}. В начале пути {l_job.lower()}, {l_turn}. Что касается личного, то {l_rel.lower()}. {l_trait}. Итог на сегодня: {l_cur.lower()}",
+
+            f"Ранние годы прошли там, где {l_birth.lower()}. Семья и детство: {l_child.lower()}. Образование: {l_edu.lower()}. Карьерный путь стартовал с того, что {l_job.lower()}, {l_turn}. Личная жизнь: {l_rel.lower()}. Особенность характера: {l_trait.lower()}. {l_cur}"
+        ]
+
+        raw_bio = random.choice(templates)
+
+        # Первая буква предложения всегда заглавная
+        sentences = raw_bio.split('. ')
+        capitalized = []
+        for s in sentences:
+            if s:
+                capitalized.append(s[0].upper() + s[1:])
+        raw_bio = '. '.join(capitalized)
+
+        self.biography = process_gender(raw_bio)
 
     def generate_thought(self):
         if self.language:
