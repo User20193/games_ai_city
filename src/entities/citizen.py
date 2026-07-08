@@ -125,26 +125,33 @@ class Citizen(Entity):
             t = self.time_system.game_time
             is_night = (t >= 22.0 or t < 6.0)
 
-            if self.job == "Кассир" and not is_night:
+            has_job = self.job in ["Кассир", "Мэр"]
+            if has_job and not is_night:
                 if 7.8 <= t < 19.8:
                     if self.state != "WORKING":
                         self.state = "WORKING"
-                        if self.world and self.world.shop_cashier_pos:
+                        work_pos = None
+                        if self.job == "Кассир" and self.world and hasattr(self.world, 'shop_cashier_pos'):
+                            work_pos = self.world.shop_cashier_pos
+                        elif self.job == "Мэр" and self.world and hasattr(self.world, 'city_hall_desk_pos'):
+                            work_pos = self.world.city_hall_desk_pos
+
+                        if work_pos:
                             start_pos = (self.x + self.width/2, self.y + self.height)
-                            self.path = astar_search(self.world, start_pos, self.world.shop_cashier_pos)
+                            self.path = astar_search(self.world, start_pos, work_pos)
                             if self.path:
                                 self.target_x, self.target_y = self.path.pop(0)
                                 self.target_x -= self.width / 2
                                 self.target_y -= self.height
                             else:
-                                self.target_x, self.target_y = self.world.shop_cashier_pos
+                                self.target_x, self.target_y = work_pos
                                 self.target_x -= self.width / 2
                                 self.target_y -= self.height
                 elif self.state == "WORKING":
                     self.state = "IDLE"
 
-            # Если не кассир, голоден или нет еды и есть деньги
-            if self.job != "Кассир" and not is_night and self.state in ["IDLE", "WANDER"]:
+            # Если свободен, голоден или нет еды и есть деньги
+            if self.state in ["IDLE", "WANDER"] and not is_night:
                 if (self.hunger < 40.0 or self.food_supplies == 0) and self.money >= 15 and not self.has_groceries:
                     self.state = "SHOPPING_GOTO_SHELF"
 
