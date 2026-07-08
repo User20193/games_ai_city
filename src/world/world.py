@@ -153,127 +153,164 @@ class World:
         self.dirty_roof.clear()
 
     def build_city_center(self):
+        import random
         for cy in range(self.WORLD_HEIGHT):
             for cx in range(self.WORLD_WIDTH):
                 self.get_chunk(cx, cy)
 
-        center_tx = (self.WORLD_WIDTH * self.CHUNK_SIZE) // 2
-        center_ty = (self.WORLD_HEIGHT * self.CHUNK_SIZE) // 2
-
         max_tx = self.WORLD_WIDTH * self.CHUNK_SIZE
+        max_ty = self.WORLD_HEIGHT * self.CHUNK_SIZE
 
-        # === 1. ГЛАВНОЕ ШОССЕ ===
-        highway_y = center_ty
-        for x in range(max_tx):
-            self.set_tile_by_index(x, highway_y - 2, 4, layer="ground")
-            self.set_tile_by_index(x, highway_y - 1, 12, layer="ground")
-            if x % 4 < 2:
-                self.set_tile_by_index(x, highway_y, 13, layer="ground")
-            else:
-                self.set_tile_by_index(x, highway_y, 12, layer="ground")
-            self.set_tile_by_index(x, highway_y + 1, 12, layer="ground")
-            self.set_tile_by_index(x, highway_y + 2, 4, layer="ground")
+        center_tx = max_tx // 2
+        center_ty = max_ty // 2
 
-            # Фонари
-            if x % 15 == 0 and x > 10 and x < max_tx - 10:
-                self.set_tile_by_index(x, highway_y - 3, 33, layer="ground") # Фонарь сверху дороги
-                self.lights.append((x * self.TILE_SIZE + self.TILE_SIZE/2, (highway_y - 3) * self.TILE_SIZE, 80, (255, 255, 100, 60)))
-                self.set_tile_by_index(x+7, highway_y + 3, 33, layer="ground") # Фонарь снизу дороги со смещением
-                self.lights.append(((x+7) * self.TILE_SIZE + self.TILE_SIZE/2, (highway_y + 3) * self.TILE_SIZE, 80, (255, 255, 100, 60)))
+        # === 1. ДОРОЖНАЯ СЕТЬ (КРЕСТОВИНА) ===
+        hw_y = center_ty
+        hw_x = center_tx - 15 # Вертикальная дорога немного смещена
 
-        # === 2. МЭРИЯ ===
+        def draw_road_h(y_start):
+            for x in range(max_tx):
+                self.set_tile_by_index(x, y_start - 2, 4, layer="ground")
+                self.set_tile_by_index(x, y_start - 1, 12, layer="ground")
+                self.set_tile_by_index(x, y_start, 13 if x % 4 < 2 else 12, layer="ground")
+                self.set_tile_by_index(x, y_start + 1, 12, layer="ground")
+                self.set_tile_by_index(x, y_start + 2, 4, layer="ground")
+
+                if x % 15 == 0 and x > 5 and x < max_tx - 5:
+                    self.set_tile_by_index(x, y_start - 3, 33, layer="ground")
+                    self.lights.append((x * self.TILE_SIZE + self.TILE_SIZE/2, (y_start - 3) * self.TILE_SIZE, 80, (255, 255, 150, 80)))
+                    self.set_tile_by_index(x+7, y_start + 3, 33, layer="ground")
+                    self.lights.append(((x+7) * self.TILE_SIZE + self.TILE_SIZE/2, (y_start + 3) * self.TILE_SIZE, 80, (255, 255, 150, 80)))
+
+        def draw_road_v(x_start):
+            for y in range(max_ty):
+                self.set_tile_by_index(x_start - 2, y, 4, layer="ground")
+                self.set_tile_by_index(x_start - 1, y, 12, layer="ground")
+                self.set_tile_by_index(x_start, y, 13 if y % 4 < 2 else 12, layer="ground")
+                self.set_tile_by_index(x_start + 1, y, 12, layer="ground")
+                self.set_tile_by_index(x_start + 2, y, 4, layer="ground")
+
+                if y % 15 == 0 and y > 5 and y < max_ty - 5:
+                    # Фонари вдоль вертикальной дороги (чтобы не перекрывали центр, ставим чуть в стороне)
+                    if abs(y - hw_y) > 5:
+                        self.set_tile_by_index(x_start - 3, y, 33, layer="ground")
+                        self.lights.append(((x_start - 3) * self.TILE_SIZE + self.TILE_SIZE/2, y * self.TILE_SIZE, 80, (255, 255, 150, 80)))
+
+        draw_road_h(hw_y)
+        draw_road_v(hw_x)
+
+        # Перекресток (заливаем асфальтом без разметки внутри креста)
+        for y in range(hw_y - 1, hw_y + 2):
+            for x in range(hw_x - 1, hw_x + 2):
+                self.set_tile_by_index(x, y, 12, layer="ground")
+
+        # === 2. РЕКА И МОСТ (Правый край) ===
+        river_x = max_tx - 25
+        for y in range(max_ty):
+            for dx in range(8):
+                self.set_tile_by_index(river_x + dx, y, 34, layer="ground") # Water
+
+        # Мост через реку по главной дороге
+        for y in range(hw_y - 2, hw_y + 3):
+            for dx in range(8):
+                self.set_tile_by_index(river_x + dx, y, 35, layer="ground") # Bridge
+
+        # === 3. ДАУНТАУН (Левый верхний квадрат) ===
         city_hall = get_city_hall_prefab()
-        ch_x = center_tx - city_hall.width // 2
-        ch_y = highway_y - 2 - city_hall.height - 4
+        ch_x = hw_x - city_hall.width - 6
+        ch_y = hw_y - city_hall.height - 6
         apply_prefab(self, ch_x, ch_y, city_hall)
-
         self.city_hall_desk_pos = ((ch_x + 7.5) * self.TILE_SIZE, (ch_y + 3.5) * self.TILE_SIZE)
 
-        for y in range(ch_y + city_hall.height, highway_y - 2):
-            self.set_tile_by_index(center_tx, y, 4, layer="ground")
-            self.set_tile_by_index(center_tx - 1, y, 4, layer="ground")
+        # Тротуар к Мэрии
+        for x in range(ch_x + 6, hw_x - 2):
+            self.set_tile_by_index(x, ch_y + city_hall.height, 4, layer="ground")
+            self.set_tile_by_index(x, ch_y + city_hall.height + 1, 4, layer="ground")
 
-        # === 3. ДОМ МЭРА ===
+        self.building_doors["Мэрия"] = ((ch_x + 6) * self.TILE_SIZE, (ch_y + city_hall.height) * self.TILE_SIZE + self.TILE_SIZE)
+
         mayor_house = get_mayor_house_prefab()
-        mh_x = center_tx + city_hall.width + 10
-        mh_y = highway_y + 3 + 4
+        mh_x = 5
+        mh_y = hw_y - mayor_house.height - 6
         apply_prefab(self, mh_x, mh_y, mayor_house)
+        self.building_doors["Дом Мэра"] = ((mh_x + 4) * self.TILE_SIZE + self.TILE_SIZE/2, mh_y * self.TILE_SIZE - self.TILE_SIZE)
 
-        mh_door_x = mh_x + 4
-        for y in range(highway_y + 3, mh_y):
-            self.set_tile_by_index(mh_door_x, y, 4, layer="ground")
-
-        self.building_doors["Дом Мэра"] = (mh_door_x * self.TILE_SIZE + self.TILE_SIZE/2, mh_y * self.TILE_SIZE - self.TILE_SIZE)
-
-        # === 4. МНОГОЭТАЖКИ ===
-        apt_prefab = get_apartment_building_prefab()
-        apt_y = highway_y + 3 + 4
-
-        # Квартира 1
-        apt1_x = ch_x - 10
-        apply_prefab(self, apt1_x, apt_y, apt_prefab)
-        a1_door_x = apt1_x + 6
-        for y in range(highway_y + 3, apt_y):
-            self.set_tile_by_index(a1_door_x, y, 4, layer="ground")
-            self.set_tile_by_index(a1_door_x - 1, y, 4, layer="ground")
-
-        self.building_doors["Многоэтажка 1"] = (a1_door_x * self.TILE_SIZE, apt_y * self.TILE_SIZE - self.TILE_SIZE)
-
-        # Квартира 2
-        apt2_x = ch_x + 6
-        apply_prefab(self, apt2_x, apt_y, apt_prefab)
-        a2_door_x = apt2_x + 6
-        for y in range(highway_y + 3, apt_y):
-            self.set_tile_by_index(a2_door_x, y, 4, layer="ground")
-            self.set_tile_by_index(a2_door_x - 1, y, 4, layer="ground")
-
-        self.building_doors["Многоэтажка 2"] = (a2_door_x * self.TILE_SIZE, apt_y * self.TILE_SIZE - self.TILE_SIZE)
-
-        # === 5. СУПЕРМАРКЕТ ===
+        # === 4. КОММЕРЦИЯ И ПАРК (Левый нижний квадрат) ===
         shop_prefab = get_supermarket_prefab()
-        shop_x = ch_x - shop_prefab.width - 10
-        shop_y = highway_y - 2 - shop_prefab.height - 4
+        shop_x = hw_x - shop_prefab.width - 6
+        shop_y = hw_y + 6
         apply_prefab(self, shop_x, shop_y, shop_prefab)
 
-        # Дверь в префабе уже на южной стене (x=8, y=23)
         shop_door_x = shop_x + 8
-        shop_door_y = shop_y + 23
-
-        # Дорожка к двери
-        for y in range(shop_door_y + 1, highway_y - 2):
+        shop_door_y = shop_y + shop_prefab.height - 1
+        for y in range(hw_y + 3, shop_door_y):
             self.set_tile_by_index(shop_door_x, y, 4, layer="ground")
             self.set_tile_by_index(shop_door_x - 1, y, 4, layer="ground")
-
         self.building_doors["Супермаркет"] = (shop_door_x * self.TILE_SIZE, shop_door_y * self.TILE_SIZE + self.TILE_SIZE)
-
-        # Точки интереса: касса (x=3, y=20)
-        # Место кассира: y=21
         self.shop_cashier_pos = ((shop_x + 4.5) * self.TILE_SIZE, (shop_y + 21.5) * self.TILE_SIZE)
 
-        # Слоты для очереди перед кассой (выстраиваются вверх от кассы, так как дверь снизу)
-        # Касса на y=20, очередь идет: y=19, 18, 17, 16...
         self.shop_queue_slots = []
-        for dy in range(1, 6): # 5 мест в очереди
+        for dy in range(1, 6):
             self.shop_queue_slots.append(((shop_x + 5.5) * self.TILE_SIZE, (shop_y + 20.5 - dy) * self.TILE_SIZE))
 
-        # Точки интереса: отделы
-        # Левые полки (x=2..4, y=3..18). Место для покупателя: справа (x=6)
         self.shop_departments["Крупы и бакалея"].append(((shop_x + 6.5) * self.TILE_SIZE, (shop_y + 6.5) * self.TILE_SIZE))
         self.shop_departments["Овощи"].append(((shop_x + 6.5) * self.TILE_SIZE, (shop_y + 14.5) * self.TILE_SIZE))
-
-        # Правые полки (x=11..13, y=3..18). Покупатель: слева (x=9)
         self.shop_departments["Молочные продукты"].append(((shop_x + 9.5) * self.TILE_SIZE, (shop_y + 6.5) * self.TILE_SIZE))
         self.shop_departments["Фрукты"].append(((shop_x + 9.5) * self.TILE_SIZE, (shop_y + 14.5) * self.TILE_SIZE))
-
-        # Центральные островки
         self.shop_departments["Мясо и рыба"].append(((shop_x + 8.0) * self.TILE_SIZE, (shop_y + 4.0) * self.TILE_SIZE))
         self.shop_departments["Мясо и рыба"].append(((shop_x + 8.0) * self.TILE_SIZE, (shop_y + 17.0) * self.TILE_SIZE))
 
+        # Городской парк (левее магазина)
+        park_x = 5
+        park_y = hw_y + 6
+        park_w = 12
+        park_h = 15
 
-        # === 6. АВТОБУСНАЯ ОСТАНОВКА ===
+        self.park_benches = []
+        for py in range(park_h):
+            for px in range(park_w):
+                tx = park_x + px
+                ty = park_y + py
+
+                # Травяная подложка
+                self.set_tile_by_index(tx, ty, 0, layer="ground")
+
+                # Деревья по краям
+                if px == 0 or py == 0 or px == park_w - 1 or py == park_h - 1:
+                    if random.random() > 0.3:
+                        self.set_tile_by_index(tx, ty, 36, layer="ground")
+                # Дорожка крестом
+                elif px == park_w // 2 or py == park_h // 2:
+                    self.set_tile_by_index(tx, ty, 37, layer="ground")
+                # Скамейки
+                elif (px == 2 and py == 2) or (px == park_w - 3 and py == park_h - 3):
+                    self.set_tile_by_index(tx, ty, 11, layer="ground")
+                    self.park_benches.append(((tx + 0.5) * self.TILE_SIZE, (ty + 0.5) * self.TILE_SIZE))
+
+        # === 5. СПАЛЬНЫЙ РАЙОН (Правый верхний квадрат) ===
+        apt_prefab = get_apartment_building_prefab()
+        apt_y = hw_y - apt_prefab.height - 8
+
+        apt1_x = hw_x + 6
+        apply_prefab(self, apt1_x, apt_y, apt_prefab)
+        a1_door_x = apt1_x + 6
+        for y in range(apt_y + apt_prefab.height, hw_y - 2):
+            self.set_tile_by_index(a1_door_x, y, 4, layer="ground")
+            self.set_tile_by_index(a1_door_x - 1, y, 4, layer="ground")
+        self.building_doors["Многоэтажка 1"] = (a1_door_x * self.TILE_SIZE, apt_y * self.TILE_SIZE - self.TILE_SIZE)
+
+        apt2_x = hw_x + 6 + apt_prefab.width + 2
+        apply_prefab(self, apt2_x, apt_y, apt_prefab)
+        a2_door_x = apt2_x + 6
+        for y in range(apt_y + apt_prefab.height, hw_y - 2):
+            self.set_tile_by_index(a2_door_x, y, 4, layer="ground")
+            self.set_tile_by_index(a2_door_x - 1, y, 4, layer="ground")
+        self.building_doors["Многоэтажка 2"] = (a2_door_x * self.TILE_SIZE, apt_y * self.TILE_SIZE - self.TILE_SIZE)
+
+        # Автобусная остановка в спальном районе
         bus_stop = get_bus_stop_prefab()
-        bs_x = center_tx + 3
-        bs_y = highway_y - 2 - bus_stop.height
+        bs_x = hw_x + 8
+        bs_y = hw_y - 2 - bus_stop.height
         apply_prefab(self, bs_x, bs_y, bus_stop)
 
         self.update_dirty_chunks()

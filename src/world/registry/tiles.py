@@ -73,3 +73,9 @@ class TileRegistry:
 
         # Уличный фонарь
         self.register(Tile(33, "Streetlamp", (255, 255, 100), is_solid=True, texture_name="Streetlamp"))
+
+        # Природа и Парк
+        self.register(Tile(34, "Water", (65, 105, 225), is_solid=True)) # Вода (непроходима)
+        self.register(Tile(35, "Bridge", (139, 69, 19), is_solid=False)) # Мост (дерево)
+        self.register(Tile(36, "Tree", (34, 139, 34), is_solid=True)) # Дерево (непроходимо)
+        self.register(Tile(37, "ParkPath", (200, 180, 140), is_solid=False)) # Дорожка в парке
