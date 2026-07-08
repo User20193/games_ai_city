@@ -141,5 +141,11 @@ class AssetManager:
             pygame.draw.rect(surf, (100, 50, 20), (2, 2, 4, 4)) # Гречка
             pygame.draw.line(surf, (101, 67, 33), (0,7), (7,7))
 
+        elif tile_name == "Streetlamp":
+            surf.fill((0, 0, 0, 0)) # Прозрачный фон
+            pygame.draw.rect(surf, (50, 50, 60), (3, 3, 2, 5)) # Столб
+            pygame.draw.rect(surf, (255, 255, 200), (2, 0, 4, 3)) # Лампа
+            pygame.draw.rect(surf, (255, 255, 0), (3, 1, 2, 1)) # Яркая сердцевина
+
         self.textures[tile_name] = surf
         return surf

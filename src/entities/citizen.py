@@ -167,15 +167,20 @@ class Citizen(Entity):
         step_x = (dx / dist) * self.speed * dt
         step_y = (dy / dist) * self.speed * dt
 
+        moved = False
         if not self._check_collision(self.x + step_x, self.y):
             self.x += step_x
+            moved = True
 
         if not self._check_collision(self.x, self.y + step_y):
             self.y += step_y
+            moved = True
 
+        self.is_moving = moved
         return False
 
     def update(self, dt):
+        self.is_moving = False
         speed_mult = self.time_system.time_speed if self.time_system else 1.0
         self.hunger -= (10.0 / 60.0) * dt * speed_mult
         if self.hunger < 0: self.hunger = 0.0
@@ -435,6 +440,9 @@ class Citizen(Entity):
                 self.queue_index = -1
                 self.state = "IDLE" # Перейдет в GOING_HOME автоматически
 
+        if getattr(self, 'is_moving', False):
+            self.walk_timer += dt * speed_mult * 15.0
+
 
     def _goto_next_shelf(self):
         if not self.shopping_list:
@@ -478,6 +486,14 @@ class Citizen(Entity):
 
         sx = int(screen_rect.x)
         sy = int(screen_rect.y)
+
+        # Анимация покачивания (bobbing)
+        if getattr(self, 'is_moving', False):
+            import math
+            # sin(timer) дает от -1 до 1. Если умножить на 1.5, получим амплитуду.
+            # Используем abs чтобы персонаж "подпрыгивал" вверх от базовой линии, а не проваливался.
+            bob_offset = -int(abs(math.sin(self.walk_timer)) * 2.0)
+            sy += bob_offset
 
         head_h = int((6 / 18) * screen_rect.height)
         body_h = int((7 / 18) * screen_rect.height)

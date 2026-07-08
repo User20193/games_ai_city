@@ -70,3 +70,6 @@ class TileRegistry:
         self.register(Tile(30, "GroceryShelf_TopRight", (139, 69, 19), is_solid=True, texture_name="GroceryShelf_TopRight"))
         self.register(Tile(31, "GroceryShelf_BotLeft", (139, 69, 19), is_solid=True, texture_name="GroceryShelf_BotLeft"))
         self.register(Tile(32, "GroceryShelf_BotRight", (139, 69, 19), is_solid=True, texture_name="GroceryShelf_BotRight"))
+
+        # Уличный фонарь
+        self.register(Tile(33, "Streetlamp", (255, 255, 100), is_solid=True, texture_name="Streetlamp"))
