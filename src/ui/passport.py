@@ -76,6 +76,15 @@ class PassportUI:
                 hunger_surf = self.asset_manager.render_text("Сытость:", self.small_size, self.text_color)
                 surface.blit(hunger_surf, (x + 25, content_y + 45))
 
+                # Корзина продуктов
+                cart = getattr(citizen, 'shopping_cart', [])
+                if len(cart) > 0:
+                    cart_str = "В корзине: " + ", ".join(cart[:3])
+                    if len(cart) > 3: cart_str += "..."
+                    cart_surf = self.asset_manager.render_text(cart_str, 10, (150, 255, 150))
+                    surface.blit(cart_surf, (x + 25, content_y + 65))
+
+
                 bar_x = x + 90
                 bar_y = content_y + 45
                 bar_w = self.width - 130
