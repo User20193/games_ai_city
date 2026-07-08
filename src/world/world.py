@@ -31,6 +31,7 @@ class World:
         self.building_doors = {}
 
         self.shop_cashier_pos = None
+        self.lights = [] # Координаты фонарей для освещения
         self.shop_departments = {
             "Крупы и бакалея": [],
             "Овощи": [],
@@ -159,6 +160,13 @@ class World:
             self.set_tile_by_index(x, highway_y + 1, 12, layer="ground")
             self.set_tile_by_index(x, highway_y + 2, 4, layer="ground")
 
+            # Фонари
+            if x % 15 == 0 and x > 10 and x < max_tx - 10:
+                self.set_tile_by_index(x, highway_y - 3, 33, layer="ground") # Фонарь сверху дороги
+                self.lights.append((x * self.TILE_SIZE + self.TILE_SIZE/2, (highway_y - 3) * self.TILE_SIZE, 80, (255, 255, 100, 60)))
+                self.set_tile_by_index(x+7, highway_y + 3, 33, layer="ground") # Фонарь снизу дороги со смещением
+                self.lights.append(((x+7) * self.TILE_SIZE + self.TILE_SIZE/2, (highway_y + 3) * self.TILE_SIZE, 80, (255, 255, 100, 60)))
+
         # === 2. МЭРИЯ ===
         city_hall = get_city_hall_prefab()
         ch_x = center_tx - city_hall.width // 2
@@ -256,7 +264,7 @@ class World:
 
         self.update_dirty_chunks()
 
-    def _render_layer(self, surface, camera, chunk_surfaces_dict):
+    def _render_layer(self, surface, camera, chunk_surfaces_dict, is_roof=False):
         visible_width = camera.width / camera.zoom
         visible_height = camera.height / camera.zoom
 
@@ -333,4 +341,4 @@ class World:
         self._render_layer(surface, camera, self.chunk_surfaces_ground)
 
     def render_roof(self, surface, camera):
-        self._render_layer(surface, camera, self.chunk_surfaces_roof)
+        self._render_layer(surface, camera, self.chunk_surfaces_roof, is_roof=True)

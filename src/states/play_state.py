@@ -15,6 +15,7 @@ class PlayState(State):
         super().__init__(game)
 
         self.world = World(self.game.WINDOW_WIDTH, self.game.WINDOW_HEIGHT)
+        self.time_system.lights = self.world.lights
         self.camera = Camera(self.game.WINDOW_WIDTH, self.game.WINDOW_HEIGHT)
 
         world_pixel_width = self.world.WORLD_WIDTH * self.world.CHUNK_SIZE * self.world.TILE_SIZE
@@ -113,7 +114,7 @@ class PlayState(State):
         if self.show_roofs:
             self.world.render_roof(surface, self.camera)
 
-        self.time_system.render_day_night_cycle(surface)
+        self.time_system.render_day_night_cycle(surface, self.camera)
 
         debug_text = f"Cam: ({int(self.camera.x)}, {int(self.camera.y)}) | Цена еды: {self.market_system.get_price()} L"
 
