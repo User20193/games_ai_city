@@ -29,9 +29,22 @@ class Citizen(Entity):
 
         self.first_name = "Неизвестный"
         self.last_name = "Гражданин"
+        self.biography = ""
         if self.language:
             self.first_name = self.language.get_word("first_names")
             self.last_name = self.language.get_word("last_names")
+
+            # Генерация биографии (сшиваем слои)
+            l1 = self.language.get_word("bio_birthplace")
+            l2 = self.language.get_word("bio_childhood")
+            l3 = self.language.get_word("bio_education")
+            l4 = self.language.get_word("bio_first_job")
+            l5 = self.language.get_word("bio_turning_point")
+            l6 = self.language.get_word("bio_relationships")
+            l7 = self.language.get_word("bio_trait")
+            l8 = self.language.get_word("bio_current")
+
+            self.biography = f"Родом оттуда, где находится {l1.lower()}. В юности {l2.lower()}. {l3}. {l4}, {l5}. {l6}. {l7}. {l8}"
 
         self.age = random.randint(18, 80)
         self.job = "Безработный"
